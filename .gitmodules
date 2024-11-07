@@ -1,0 +1,6 @@
+[submodule "pico-prototype/pico-sdk"]
+	path = pico-prototype/pico-sdk
+	url = https://github.com/raspberrypi/pico-sdk.git
+[submodule "pico-prototype/picotool"]
+	path = pico-prototype/picotool
+	url = https://github.com/raspberrypi/picotool
