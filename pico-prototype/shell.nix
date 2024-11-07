@@ -1,5 +1,35 @@
 { pkgs ? import <nixpkgs> {} } :
+let
+  lib = pkgs.lib;
+  picoSetup = ''
+    export PICO_SDK_PATH="$PWD/pico-sdk"
+    export PICOTOOL_DIR="$PWD/picotool/build/picotool"
+    export PICO_BOARD="pico_w"
+    export PATH="$PATH:$PWD/bin"
+
+    git submodule update --init --recursive
+    mkdir -p bin
+
+    if [ ! -f bin/picotool ]; then
+      echo "[shell] building picotool"
+      mkdir -p picotool/build
+      pushd picotool/build > /dev/null
+      cmake -DCMAKE_INSTALL_PREFIX=. -DPICOTOOL_FLAT_INSTALL=1 ..
+      make
+      ln -sf "$PWD/picotool" ../../bin
+      popd > /dev/null
+    else
+      echo "[shell] picotool already built, skipping build"
+    fi
+
+      echo "[shell] setting up pico-sdk"
+      cd pico-sdk
+      git submodule update --init
+      cd ..
+    '';
+in
 pkgs.mkShell {
+
   packages = with pkgs; [
     cmake
     gcc-arm-embedded
@@ -9,27 +39,8 @@ pkgs.mkShell {
     openocd
     screen
   ];
-  buildInputs = [
-  ];
 
-  shellHook = ''
-    export PICO_SDK_PATH="$PWD/pico-sdk"
-    export PICO_BOARD=pico_w
-    mkdir -p bin
-    export PATH="$PATH:$PWD/bin"
-    echo "[shell] building picotool"
-    git submodule update --init
-    pushd picotool > /dev/null 2>&1
-    mkdir -p build
-    cd build
-    cmake -DCMAKE_INSTALL_PREFIX=. -DPICOTOOL_FLAT_INSTALL=1 ..
-    make
-    ln -sf "$PWD/picotool" ../../bin
-    popd > /dev/null 2>&1
-    echo "[shell] setting up pico-sdk"
-    cd pico-sdk
-    git submodule update --init
-    cd ..
+  shellHook = picoSetup +''
     echo "[shell] pico-prototype shell ready"
     '';
 }

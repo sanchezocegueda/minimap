@@ -13,15 +13,18 @@ project(my_project)
 pico_sdk_init()
 
 # rest of your project
-add_executable(hello_usb
-    hello_usb.c
+add_executable(blink
+    blink.c
 )
 
 # Add pico_stdlib library which aggregates commonly used features
-target_link_libraries(hello_usb pico_stdlib)
+target_link_libraries(blink pico_stdlib)
 
-pico_enable_stdio_usb(hello_usb 1)
-pico_enable_stdio_uart(hello_usb 0)
+# Need defines for LED pin, because we are using pico w
+target_link_libraries(blink pico_cyw43_arch_none)
+
+# set(EXECUTABLE_OUTPUT_PATH, ../bin)
+
 # NOTE FOR DEVELOPING --------------------------
 # create map/bin/hex/uf2 file in addition to ELF.
 # pico_add_extra_outputs(hello_world)

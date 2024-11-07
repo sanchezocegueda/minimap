@@ -18,10 +18,11 @@ add_executable(hello_usb
 )
 
 # Add pico_stdlib library which aggregates commonly used features
-target_link_libraries(hello_usb pico_stdlib)
+target_link_libraries(blink pico_stdlib)
 
-pico_enable_stdio_usb(hello_usb 1)
-pico_enable_stdio_uart(hello_usb 0)
+
+set(EXECUTABLE_OUTPUT_PATH, ../bin)
+
 # NOTE FOR DEVELOPING --------------------------
 # create map/bin/hex/uf2 file in addition to ELF.
 # pico_add_extra_outputs(hello_world)
