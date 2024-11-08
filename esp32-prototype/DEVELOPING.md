@@ -1,7 +1,6 @@
 # Setting up Espressif-IDF
 Install [prerequisites](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/linux-macos-setup.html#step-1-install-prerequisites)
 
-
 Then run
 ```bash
 cd esp-idf
@@ -35,3 +34,14 @@ idf.py -p DEVICE_PATH flash
 idf.py -p DEVICE_PATH monitor
 ```
 
+# Understanding IDF
+[Running the main task](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/startup.html#running-the-main-task)
+- "Unlike normal FreeRTOS tasks (or embedded C main functions), the app_main task is allowed to return. If this happens, The task is cleaned up and the system will continue running with other RTOS tasks scheduled normally. Therefore, it is possible to implement app_main as either a function that creates other application tasks and then returns, or as a main application task itself."
+
+[Build System](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/build-system.html)
+- [Component Requirements](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/build-system.html)
+
+# IDF Components Available
+[RadioLib](https://components.espressif.com/components/jgromes/radiolib/versions/7.1.0)
+[IMU](https://components.espressif.com/components/truita/mpu9250/versions/1.0.1)
+[Display](https://components.espressif.com/components/espressif/esp_lcd_gc9a01/versions/2.0.0)
