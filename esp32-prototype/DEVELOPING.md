@@ -4,7 +4,7 @@ Install [prerequisites](https://docs.espressif.com/projects/esp-idf/en/latest/es
 Then run
 ```bash
 cd esp-idf
-./esp-idf/install.sh
+./install.sh
 . ./export.sh # run everytime we setup a shell
 cd ..
 ```
