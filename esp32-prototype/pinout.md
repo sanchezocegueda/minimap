@@ -33,6 +33,9 @@
 
 ## Microcontroller
 Pins `13` and `0` must be set up as an SPI interface
+
 Pin `18` must be set up as an I2C interface
+
 Pins `19`, `27`, and `16` must be setup as clocks
+
 Pins `5` and `26` must be setup for interrupts
