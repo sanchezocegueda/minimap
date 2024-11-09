@@ -12,4 +12,4 @@ git submodule update --init --recursive
 ```
 
 ## Setup IDF toolchain and VSCode extension
-See <esp32-prototype/DEVELOPING.md>
+See [](esp32-prototype/DEVELOPING.md)
