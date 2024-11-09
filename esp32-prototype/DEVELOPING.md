@@ -63,8 +63,10 @@ Read through the [basic use](https://github.com/espressif/vscode-esp-idf-extensi
 [Running the main task](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/startup.html#running-the-main-task)
 - "Unlike normal FreeRTOS tasks (or embedded C main functions), the app_main task is allowed to return. If this happens, The task is cleaned up and the system will continue running with other RTOS tasks scheduled normally. Therefore, it is possible to implement app_main as either a function that creates other application tasks and then returns, or as a main application task itself."
 
+### References
 [Build System](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/build-system.html)
 - [Component Requirements](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/build-system.html)
+
 [Tools](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/tools/idf-tools.html)
 
 # IDF Components Available
