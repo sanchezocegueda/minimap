@@ -36,6 +36,7 @@ idf.py menuconfig
 # Building the esp components
 idf.py all
 ```
+
 ### Development
 ```bash
 # Build project
@@ -46,7 +47,26 @@ idf.py -p DEVICE_PATH flash
 
 # Monitoring
 idf.py -p DEVICE_PATH monitor
+
+# Adding external libraries
 ```
+
+### Using a component/library from [Esspressif's Component Registry](https://components.espressif.com/) or repos that support ESP-IDF (look for `idf_component.yml`)
+- **This is only a short description**, please skim [Build System](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/build-system.html) 
+
+If the component has a significant amount of downloads, use the component registry to include it with
+```bash
+idf.py add-dependency COMPONENT_NAME
+```
+Otherwise, you should manually include it by cloning the repository into `components` folder. Take note of the `components` subdirectory name, this will be the same name referenced in `CMakeLists.txt`.
+
+Once added, you must register the component within the `CMakeLists.txt` of `main`
+
+```bash
+idf_component_register(SRCS "foo.c" "bar.c"
+                       REQUIRES name)
+```
+- Make sure `name` matches what's in `managed_components` or the `components` directory**
 
 ## VSCode Extension Setup
 **Install the esp-idf vscode extension and choose custom idf installation, specify the esp-idf submodule in our repo.**
@@ -65,11 +85,15 @@ Read through the [basic use](https://github.com/espressif/vscode-esp-idf-extensi
 
 ### References
 [Build System](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/build-system.html)
-- [Component Requirements](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/build-system.html)
+- [Project CMakeLists File](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/build-system.html#example-project)
+- [Minimal Project CMakeLists.txt file](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/build-system.html#minimal-example-cmakelists)
 
-[Tools](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/tools/idf-tools.html)
+[Hardware Abstraction Headers](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-guides/hardware-abstraction.html?highlight=reset%20pin#id1)
+
+May be useful later: [Tools](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/tools/idf-tools.html)
 
 # IDF Components Available
+Do not blindly use, look at download count
 - [RadioLib](https://components.espressif.com/components/jgromes/radiolib/versions/7.1.0)
 - [IMU](https://components.espressif.com/components/truita/mpu9250/versions/1.0.1)
 - [Display](https://components.espressif.com/components/espressif/esp_lcd_gc9a01/versions/2.0.0)
