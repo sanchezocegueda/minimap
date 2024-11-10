@@ -52,7 +52,7 @@ idf.py -p DEVICE_PATH monitor
 ```
 
 ### Using a component/library from [Esspressif's Component Registry](https://components.espressif.com/) or repos that support ESP-IDF (look for `idf_component.yml`)
-- **This is only a short description**, please skim [Build System](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/build-system.html) 
+- **This is only a short description**, please skim [IDF Component Manager](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-guides/tools/idf-component-manager.html#idf-component-manager) and [Build System](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/build-system.html) 
 
 If the component has a significant amount of downloads, use the component registry to include it with
 ```bash
@@ -66,7 +66,7 @@ Once added, you must register the component within the `CMakeLists.txt` of `main
 idf_component_register(SRCS "foo.c" "bar.c"
                        REQUIRES name)
 ```
-- Make sure `name` matches what's in `managed_components` or the `components` directory**
+- **Make sure `name` matches what's in `managed_components` or the `components` directory**
 
 ## VSCode Extension Setup
 **Install the esp-idf vscode extension and choose custom idf installation, specify the esp-idf submodule in our repo.**
