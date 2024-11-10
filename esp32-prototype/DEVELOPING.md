@@ -44,11 +44,12 @@ idf.py build
 
 # Flashing
 idf.py -p DEVICE_PATH flash
+```
+- **To put the esp into bootloader mode, ensure GPIO 0 is pulled low by pressing the 0 button when flashing, also GPIO 2 must be pulled low, floating, or disconnected**, see [Boot Mode Selection](https://docs.espressif.com/projects/esptool/en/latest/esp32/advanced-topics/boot-mode-selection.html#boot-mode-selection)
 
+```bash
 # Monitoring
 idf.py -p DEVICE_PATH monitor
-
-# Adding external libraries
 ```
 
 ### Using a component/library from [Esspressif's Component Registry](https://components.espressif.com/) or repos that support ESP-IDF (look for `idf_component.yml`)

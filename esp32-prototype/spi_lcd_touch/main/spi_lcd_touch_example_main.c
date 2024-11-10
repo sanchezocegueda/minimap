@@ -32,7 +32,7 @@
 
 static const char *TAG = "example";
 
-// Using SPI2 in the example
+// Using SPI2 in the example, Luca: this is the software SPI interface
 #define LCD_HOST  SPI2_HOST
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
