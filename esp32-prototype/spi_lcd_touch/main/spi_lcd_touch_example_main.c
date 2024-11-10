@@ -41,14 +41,18 @@ static const char *TAG = "example";
 #define EXAMPLE_LCD_PIXEL_CLOCK_HZ     (20 * 1000 * 1000)
 #define EXAMPLE_LCD_BK_LIGHT_ON_LEVEL  1
 #define EXAMPLE_LCD_BK_LIGHT_OFF_LEVEL !EXAMPLE_LCD_BK_LIGHT_ON_LEVEL
-#define EXAMPLE_PIN_NUM_SCLK           18
-#define EXAMPLE_PIN_NUM_MOSI           19
+
+// Pins for our screen
+#define EXAMPLE_PIN_NUM_SCLK           16
+#define EXAMPLE_PIN_NUM_MOSI           17
+#define EXAMPLE_PIN_NUM_LCD_DC         4
+#define EXAMPLE_PIN_NUM_LCD_RST        2
+#define EXAMPLE_PIN_NUM_LCD_CS         0
+
+// Unused
 #define EXAMPLE_PIN_NUM_MISO           21
-#define EXAMPLE_PIN_NUM_LCD_DC         5
-#define EXAMPLE_PIN_NUM_LCD_RST        3
-#define EXAMPLE_PIN_NUM_LCD_CS         4
 #define EXAMPLE_PIN_NUM_BK_LIGHT       2
-#define EXAMPLE_PIN_NUM_TOUCH_CS       15
+#define EXAMPLE_PIN_NUM_TOUCH_CS       36
 
 // The pixel number in horizontal and vertical
 #if CONFIG_EXAMPLE_LCD_CONTROLLER_ILI9341
@@ -170,12 +174,12 @@ static void example_lvgl_port_task(void *arg)
 
 void app_main(void)
 {
-    ESP_LOGI(TAG, "Turn off LCD backlight");
-    gpio_config_t bk_gpio_config = {
-        .mode = GPIO_MODE_OUTPUT,
-        .pin_bit_mask = 1ULL << EXAMPLE_PIN_NUM_BK_LIGHT
-    };
-    ESP_ERROR_CHECK(gpio_config(&bk_gpio_config));
+    // ESP_LOGI(TAG, "Turn off LCD backlight");
+    // gpio_config_t bk_gpio_config = {
+    //     .mode = GPIO_MODE_OUTPUT,
+    //     .pin_bit_mask = 1ULL << EXAMPLE_PIN_NUM_BK_LIGHT
+    // };
+    // ESP_ERROR_CHECK(gpio_config(&bk_gpio_config));
 
     ESP_LOGI(TAG, "Initialize SPI bus");
     spi_bus_config_t buscfg = {
@@ -193,9 +197,12 @@ void app_main(void)
     esp_lcd_panel_io_spi_config_t io_config = {
         .dc_gpio_num = EXAMPLE_PIN_NUM_LCD_DC,
         .cs_gpio_num = EXAMPLE_PIN_NUM_LCD_CS,
+        //////////////////////////////////////
+        // Not sure about these... See  https://docs.espressif.com/projects/esp-idf/en/v5.0.1/esp32/api-reference/peripherals/lcd.html#spi-interfaced-lcd
         .pclk_hz = EXAMPLE_LCD_PIXEL_CLOCK_HZ,
         .lcd_cmd_bits = EXAMPLE_LCD_CMD_BITS,
         .lcd_param_bits = EXAMPLE_LCD_PARAM_BITS,
+        ////////////////////////////////////////
         .spi_mode = 0,
         .trans_queue_depth = 10,
     };

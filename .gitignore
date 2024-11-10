@@ -1,5 +1,13 @@
-build/
+# from picotool
 bin/
+
+# from an esp-idf project
+.cache/
+build/
 managed_components/
+sdkconfig
+dependencies.lock
+
+# from esp-idf vscode extension
 .vscode/
 .devcontainer/
