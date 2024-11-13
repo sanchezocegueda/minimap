@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include "driver/uart.h"
-#include <TinyGPS++.h>
 #include "esp_err.h"
 #include "esp_log.h"
+#include <TinyGPS++.h>
 
 const char *gpsStream =
   "$GPRMC,045103.000,A,3014.1984,N,09749.2872,W,0.67,161.46,030913,,,A*7C\r\n"
@@ -13,12 +13,16 @@ const char *gpsStream =
   "$GPGGA,045252.000,3014.4273,N,09749.0628,W,1,09,1.3,206.9,M,-22.5,M,,0000*6F\r\n";
 
 static const char *TAG = "main";
+#define TX 1
+#define RX 3
+#define GPSBaud 4800
 
 extern "C" void app_main(void)
 {
-    ESP_LOGI(TAG, "[RFM95] Initializing ... ");
+    ESP_LOGI(TAG, "Initializing GPS");
+    
     /* Port an example from the library. Check components/gps/TinyGPSPlus/examples */
-    // TinyGPSPlus gps;
+    TinyGPSPlus gps;
 
     // while (*gpsStream)
     //     if (gps.encode(*gpsStream++))

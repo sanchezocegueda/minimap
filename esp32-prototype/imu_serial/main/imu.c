@@ -13,8 +13,10 @@
 
 #define SCL_PIN 19
 #define SDA_PIN 23
+#define IMU_INT_PIN 5
 
-static const char *TAG = "mpu_example";
+static const char *TAG = "imu";
+
 
 void vImuTask(void *pvParameters) {
   i2c_master_bus_config_t bus_config = {.clk_source = I2C_CLK_SRC_DEFAULT,
