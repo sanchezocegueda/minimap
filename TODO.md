@@ -3,13 +3,12 @@ We need to get simple demo programs for all peripherals working. This means we h
 
 ## Screen
 - [x] basic esp-idf example code running
-- [ ] play around with [LVGL](https://docs.lvgl.io/master/intro/introduction.html)
-- [ ] simple 2 coordinates displayed with one centered
-- [ ] implementing arrow from center given GPS heading
+- [x] play around with [LVGL](https://docs.lvgl.io/master/intro/introduction.html)
+- [x] simple 2 coordinates displayed with one centered
+- [ ] Update screen with new data periodically
 - [ ] GPS -- given latitude and longitude from GPS, track around a fixed point
 - [ ] IMU -- given an angle, rotate actors on the screen
-- [ ] IMU -- display where North is
-- [ ] Update screen with new data periodically
+- [ ] IMU -- given an angle, display where North is
 - [ ] Cosmetic: add radar lines
 
 ## IMU
