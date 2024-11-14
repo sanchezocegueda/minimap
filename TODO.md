@@ -6,6 +6,11 @@ We need to get simple demo programs for all peripherals working. This means we h
 - [ ] play around with [LVGL](https://docs.lvgl.io/master/intro/introduction.html)
 - [ ] simple 2 coordinates displayed with one centered
 - [ ] implementing arrow from center given GPS heading
+- [ ] GPS -- given latitude and longitude from GPS, track around a fixed point
+- [ ] IMU -- given an angle, rotate actors on the screen
+- [ ] IMU -- display where North is
+- [ ] Update screen with new data periodically
+- [ ] Cosmetic: add radar lines
 
 ## IMU
 - [x] Compile a driver and/or library
