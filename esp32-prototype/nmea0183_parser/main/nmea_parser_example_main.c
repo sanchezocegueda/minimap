@@ -61,10 +61,4 @@ void app_main(void)
     /* register event handler for NMEA parser library */
     nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL);
 
-    vTaskDelay(10000 / portTICK_PERIOD_MS);
-
-    /* unregister event handler */
-    nmea_parser_remove_handler(nmea_hdl, gps_event_handler);
-    /* deinit NMEA parser library */
-    nmea_parser_deinit(nmea_hdl);
 }

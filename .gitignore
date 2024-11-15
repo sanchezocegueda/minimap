@@ -3,6 +3,9 @@ bin/
 # from esp-idf vscode extension
 .devcontainer/
 
+# no need to save sdkconfig.old
+sdkconfig.old
+
 # Below is the ESP-IDF .gitignore
 .config
 *.o
