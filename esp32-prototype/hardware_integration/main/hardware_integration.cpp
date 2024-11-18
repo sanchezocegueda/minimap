@@ -1,7 +1,7 @@
-#include <nmea_parser.h>
 #include <RadioLib.h>
 #include "hal/ESP-IDF/EspHal.h"
 
+#include <nmea_parser.h>
 
 #ifdef __cplusplus
 extern "C" {

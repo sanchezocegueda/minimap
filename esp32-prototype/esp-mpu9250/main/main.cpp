@@ -43,11 +43,11 @@ static const char *TAG = "main";
 calibration_t cal = {
     .mag_offset = {.x = 8.476562, .y = 11.578125, .z = 9.960938},
     .mag_scale = {.x = 0.970968, .y = 1.035335, .z = 0.995789},
+    .gyro_bias_offset = {.x = -0.840523, .y = -0.754751, .z = -1.463743},
     .accel_offset = {.x = 0.019448, .y = 0.045232, .z = 0.084993},
     .accel_scale_lo = {.x = 1.021489, .y = 1.022823, .z = 1.049751},
-    .accel_scale_hi = {.x = -0.980145, .y = -0.977748, .z = -0.968229},
+    .accel_scale_hi = {.x = -0.980145, .y = -0.977748, .z = -0.968229}};
 
-    .gyro_bias_offset = {.x = -0.840523, .y = -0.754751, .z = -1.463743}};
 
 /**
  * Transformation:
@@ -143,7 +143,7 @@ static void imu_task(void *arg)
   vTaskDelete(NULL);
 }
 
-void app_main(void)
+extern "C" void app_main(void)
 {
   // start i2c task
   xTaskCreate(imu_task, "imu_task", 4096, NULL, 10, NULL);
