@@ -10,6 +10,3 @@
 [submodule "esp32-prototype/hardware_integration/components/RadioLib"]
 	path = esp32-prototype/hardware_integration/components/RadioLib
 	url = https://github.com/jgromes/RadioLib.git
-[submodule "esp32-prototype/imu_serial/components/esp-mpu9250"]
-	path = esp32-prototype/imu_serial/components/esp-mpu9250
-	url = https://git.sr.ht/~truita/esp-mpu9250
