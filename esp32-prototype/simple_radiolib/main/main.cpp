@@ -43,19 +43,21 @@ extern "C" void app_main(void) {
     }
   }
   ESP_LOGI(TAG, "success!\n");
+  radio.setFrequency(915.0);
+
+  static uint8_t data[8];
+  memset(data, 0, 8);
 
   // loop forever
   for(;;) {
     // send a packet
-    ESP_LOGI(TAG, "[SX1276] Transmitting packet ... ");
-    state = radio.transmit("Hello World!");
+    ESP_LOGI(TAG, "[SX1276] Listening for packets ... ");
+    radio.receive(data, 8);
     if(state == RADIOLIB_ERR_NONE) {
-      // the packet was successfully transmitted
-      ESP_LOGI(TAG, "success!");
-
+      ESP_LOG_BUFFER_CHAR(TAG, data, 8);
+      ESP_LOGI(TAG, "RSSI: %f\tSNR: %f\t", radio.getRSSI(), radio.getSNR());
     } else {
       ESP_LOGI(TAG, "failed, code %d\n", state);
-
     }
 
     // wait for a second before transmitting again
