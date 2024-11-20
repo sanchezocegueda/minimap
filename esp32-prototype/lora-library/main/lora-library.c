@@ -22,10 +22,10 @@ static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_ba
 static void send_lora_gps(float latitude, float longitude, float altitude);
 // GPS
 
-static uint32_t counter = 0;
 
 void task_tx(void *p)
 {
+   static uint32_t counter = 0;
    ESP_LOGI("[TX]", "Starting");
    for(;;) {
       lora_send_packet((uint8_t*)&counter, 4);
@@ -35,33 +35,16 @@ void task_tx(void *p)
    }
 }
 
-uint8_t buf[4];
 
 void task_rx(void *p)
 {
+   uint8_t buf[4];
    int x;
    for(;;) {
       x = lora_receive_packet(buf, sizeof(buf));
       ESP_LOGI("[RX]", "%d bytes, counter: %ld", x, (uint32_t) buf[0]);
       vTaskDelay(1);
    }
-}
-
-void app_main()
-{
-   lora_init();
-   lora_set_frequency(915e6);
-   lora_enable_crc();
-
-//   /* NMEA parser configuration */
-//   nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
-//   /* init NMEA parser library */
-//   nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
-//   /* register event handler for NMEA parser library */
-//   nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL);
-
-   // xTaskCreate(&task_tx, "task_tx", 2048, NULL, 5, NULL);
-   xTaskCreate(&task_rx, "task_rx", 2048, NULL, 5, NULL);
 }
 
 
@@ -102,12 +85,37 @@ static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_ba
 
 /* Format latitude, longitude, altitude and send via lora */
 static void send_lora_gps(float latitude, float longitude, float altitude) {
-   const char* format =  "Lat: %0.3f\nLong: %0.3f\nAlt: %0.3f\n";
-   uint32_t format_len = 26;
-   ESP_LOGW(GPS_TAG, "sizeof format %ld", format_len);
-   uint32_t msg_size = 3 * sizeof(float);
-   char buf[msg_size + format_len];
-   snprintf(buf, msg_size + format_len, format, latitude, longitude, altitude);
-   ESP_LOG_BUFFER_CHAR(GPS_TAG, buf, msg_size + format_len);
-   lora_send_packet((uint8_t*)buf, msg_size + format_len);
+   float buf[3] = {latitude, longitude, altitude};
+   lora_send_packet((uint8_t*)buf, 3 * sizeof(float));
+   ESP_LOGI("[LORA_TX_GPS]", "Lat: %0.5f, Long: %0.5f, Altitude: %0.5f", latitude, longitude, altitude);
 }
+
+/* Task for receiving GPS over lora */
+void receive_lora_gps(void*) {
+   float buf[3];
+   for (;;) {
+      lora_receive_packet((uint8_t*)buf, 3 * sizeof(float));
+      ESP_LOGI("[LORA_RX_GPS]", "Lat: %0.5f, Long: %0.5f, Altitude: %0.5f", buf[0], buf[1], buf[2]);
+      vTaskDelay(1);
+   }
+}
+
+void app_main()
+{
+   lora_init();
+   lora_set_frequency(915e6);
+   lora_enable_crc();
+
+//   /* NMEA parser configuration */
+//   nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
+//   /* init NMEA parser library */
+//   nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
+//   /* register event handler for NMEA parser library */
+//   nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL);
+
+   // xTaskCreate(&task_tx, "task_tx", 2048, NULL, 5, NULL);
+   // xTaskCreate(&task_rx, "task_rx", 2048, NULL, 5, NULL);
+
+   xTaskCreate(&receive_lora_gps, "task_lora_rx", 2048, NULL, 5, NULL);
+}
+
