@@ -9,28 +9,21 @@ static uint32_t counter = 0;
 void task_tx(void *p)
 {
    for(;;) {
-      lora_send_packet((uint8_t*)&counter, 7);
+      lora_send_packet((uint8_t*)&counter, 4);
       ESP_LOGI("[SENT]", "counter: %ld", counter);
-      vTaskDelay(pdMS_TO_TICKS(2500));
       counter++;
+      vTaskDelay(pdMS_TO_TICKS(2500));
    }
 }
 
-uint8_t buf[32];
+uint8_t buf[4];
 
 void task_rx(void *p)
 {
    int x;
    for(;;) {
-      lora_receive();    // put into receive mode
-      while(lora_received()) {
-         x = lora_receive_packet(buf, sizeof(buf));
-         // buf[x] = 0;
-         // printf("Received: %s\n", buf);
-
-         ESP_LOGI("[RECEIVED]", "%d bytes, counter: %ld", x, (uint32_t) buf[0]);
-         lora_receive();
-      }
+      x = lora_receive_packet(buf, sizeof(buf));
+      ESP_LOGI("[RECEIVED]", "%d bytes, counter: %ld", x, (uint32_t) buf[0]);
       vTaskDelay(1);
    }
 }

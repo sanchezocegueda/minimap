@@ -70,6 +70,16 @@ static spi_device_handle_t __spi;
 static int __implicit;
 static long __frequency;
 
+/* Luca: Interrupt support */
+#include "freertos/queue.h"
+
+#define IRQ_GPIO_PIN 26 // move to lora_init(IRQ) ?
+#define ESP_INTR_FLAG_DEFAULT 0
+
+static QueueHandle_t lora_irq_queue = NULL;
+static void IRAM_ATTR lora_isr_handler(void* arg);
+static void lora_init_irq(void);
+
 /**
  * Write a value to a register.
  * @param reg Register index.
@@ -347,6 +357,8 @@ lora_init(void)
    ret = spi_bus_add_device(VSPI_HOST, &dev, &__spi);
    assert(ret == ESP_OK);
 
+   lora_init_irq();
+
    /*
     * Perform hardware reset.
     */
@@ -401,12 +413,12 @@ lora_send_packet(uint8_t *buf, int size)
     * Start transmission and wait for conclusion.
     */
    lora_write_reg(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_TX);
-   while((lora_read_reg(REG_IRQ_FLAGS) & IRQ_TX_DONE_MASK) == 0)
-      vTaskDelay(2);
 
-   lora_write_reg(REG_IRQ_FLAGS, IRQ_TX_DONE_MASK);
+   int event;
+   if (xQueueReceive(lora_irq_queue, &event, portMAX_DELAY) && event == IRQ_TX_DONE_MASK)
+         lora_write_reg(REG_IRQ_FLAGS, IRQ_TX_DONE_MASK);
+
 }
-
 /**
  * Read a received packet.
  * @param buf Buffer for the data.
@@ -416,35 +428,35 @@ lora_send_packet(uint8_t *buf, int size)
 int 
 lora_receive_packet(uint8_t *buf, int size)
 {
-   int len = 0;
+   lora_receive();
+   int event;
+    if (xQueueReceive(lora_irq_queue, &event, portMAX_DELAY) && event == IRQ_RX_DONE_MASK) {
+      int len = 0;
+      /*
+      * Find packet size.
+      */
+      if (__implicit) len = lora_read_reg(REG_PAYLOAD_LENGTH);
+      else len = lora_read_reg(REG_RX_NB_BYTES);
 
-   /*
-    * Check interrupts.
-    */
-   int irq = lora_read_reg(REG_IRQ_FLAGS);
-   lora_write_reg(REG_IRQ_FLAGS, irq);
-   if((irq & IRQ_RX_DONE_MASK) == 0) return 0;
-   if(irq & IRQ_PAYLOAD_CRC_ERROR_MASK) return 0;
+      /*
+      * Transfer data from radio.
+      */
+      lora_idle();
+      lora_write_reg(REG_FIFO_ADDR_PTR, lora_read_reg(REG_FIFO_RX_CURRENT_ADDR));
+      if (len > size) len = size;
+      for (int i = 0; i < len; i++) {
+            buf[i] = lora_read_reg(REG_FIFO);
+      }
 
-   /*
-    * Find packet size.
-    */
-   if (__implicit) len = lora_read_reg(REG_PAYLOAD_LENGTH);
-   else len = lora_read_reg(REG_RX_NB_BYTES);
+      // Clear the RX_DONE flag
+      lora_write_reg(REG_IRQ_FLAGS, IRQ_RX_DONE_MASK);
 
-   /*
-    * Transfer data from radio.
-    */
-   lora_idle();   
-   lora_write_reg(REG_FIFO_ADDR_PTR, lora_read_reg(REG_FIFO_RX_CURRENT_ADDR));
-   if(len > size) len = size;
-   for(int i=0; i<len; i++) 
-      *buf++ = lora_read_reg(REG_FIFO);
-
-   return len;
+      return len;
+   }
+   return 0;
 }
 
-/**
+/** LUCA: Don't use, use interrupts instead
  * Returns non-zero if there is data to read (packet received).
  */
 int
@@ -499,3 +511,33 @@ lora_dump_registers(void)
    printf("\n");
 }
 
+
+// LUCA: 
+static void IRAM_ATTR lora_isr_handler(void* arg) {
+   int irq = lora_read_reg(REG_IRQ_FLAGS);
+   lora_write_reg(REG_IRQ_FLAGS, irq); // not sure if we need to write the flags back?
+
+   if(irq & IRQ_RX_DONE_MASK) {
+      int event = IRQ_RX_DONE_MASK;
+      xQueueSendFromISR(lora_irq_queue, &event, NULL);
+   } else if (irq & IRQ_TX_DONE_MASK) {
+      int event = IRQ_TX_DONE_MASK;
+      xQueueSendFromISR(lora_irq_queue, &event, NULL);
+   }
+}
+
+
+// LUCA: 
+static void lora_init_irq(void) {
+   gpio_config_t io_conf = {
+      .pin_bit_mask = 1ULL << IRQ_GPIO_PIN,
+      .mode = GPIO_MODE_INPUT,
+      .pull_up_en = GPIO_PULLDOWN_ENABLE,
+      .intr_type = GPIO_INTR_POSEDGE
+   };
+   gpio_config(&io_conf);
+
+   lora_irq_queue = xQueueCreate(10, sizeof(int));
+   gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
+   gpio_isr_handler_add(IRQ_GPIO_PIN, lora_isr_handler, NULL);
+}
