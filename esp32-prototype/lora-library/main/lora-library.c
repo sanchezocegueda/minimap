@@ -26,9 +26,10 @@ static uint32_t counter = 0;
 
 void task_tx(void *p)
 {
+   ESP_LOGI("[TX]", "Starting");
    for(;;) {
       lora_send_packet((uint8_t*)&counter, 4);
-      ESP_LOGI("[SENT]", "counter: %ld", counter);
+      ESP_LOGI("[TX]", "counter: %ld", counter);
       counter++;
       vTaskDelay(pdMS_TO_TICKS(2500));
    }
@@ -41,7 +42,7 @@ void task_rx(void *p)
    int x;
    for(;;) {
       x = lora_receive_packet(buf, sizeof(buf));
-      ESP_LOGI("[RECEIVED]", "%d bytes, counter: %ld", x, (uint32_t) buf[0]);
+      ESP_LOGI("[RX]", "%d bytes, counter: %ld", x, (uint32_t) buf[0]);
       vTaskDelay(1);
    }
 }
@@ -52,12 +53,12 @@ void app_main()
    lora_set_frequency(915e6);
    lora_enable_crc();
 
-  /* NMEA parser configuration */
-  nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
-  /* init NMEA parser library */
-  nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
-  /* register event handler for NMEA parser library */
-  nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL);
+//   /* NMEA parser configuration */
+//   nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
+//   /* init NMEA parser library */
+//   nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
+//   /* register event handler for NMEA parser library */
+//   nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL);
 
    // xTaskCreate(&task_tx, "task_tx", 2048, NULL, 5, NULL);
    xTaskCreate(&task_rx, "task_rx", 2048, NULL, 5, NULL);

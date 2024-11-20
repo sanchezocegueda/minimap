@@ -1,3 +1,5 @@
-idf_component_register(SRCS "ping-pong.c" "lora-library.c"
+idf_component_register(SRCS "lora-library.c"
                     INCLUDE_DIRS "."
                     REQUIRES lora nmea_parser)
+
+                    
