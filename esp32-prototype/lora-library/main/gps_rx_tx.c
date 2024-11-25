@@ -23,6 +23,7 @@ static void send_lora_gps(float latitude, float longitude, float altitude);
 // GPS
 
 
+/* Basic transmit task to send a counter every 2.5 seconds */
 void task_tx(void *p)
 {
    static uint32_t counter = 0;
@@ -36,6 +37,7 @@ void task_tx(void *p)
 }
 
 
+/* Basic receive task to turn radio into receive mode and block until data is received */
 void task_rx(void *p)
 {
    uint8_t buf[4];
@@ -49,7 +51,7 @@ void task_rx(void *p)
 
 
 /**
- * @brief GPS Event Handler
+ * @brief GPS Event Handler, logs the GPS data to serial and transmits latitude, longitude, and altitude over lora.
  *
  * @param event_handler_arg handler specific arguments
  * @param event_base event base, here is fixed to ESP_NMEA_EVENT
@@ -100,22 +102,22 @@ void receive_lora_gps(void*) {
    }
 }
 
+/* Uncomment only the NMEA stuff to load a GPS transmit binary, uncomment only a given rx counter task, tx counter task, or receive_lora_gps task */
 void app_main()
 {
    lora_init();
    lora_set_frequency(915e6);
    lora_enable_crc();
 
-//   /* NMEA parser configuration */
+   /* NMEA parser configuration */
 //   nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
-//   /* init NMEA parser library */
+   /* init NMEA parser library */
 //   nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
-//   /* register event handler for NMEA parser library */
+   /* register event handler for NMEA parser library */
 //   nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL);
 
    // xTaskCreate(&task_tx, "task_tx", 2048, NULL, 5, NULL);
    // xTaskCreate(&task_rx, "task_rx", 2048, NULL, 5, NULL);
-
    xTaskCreate(&receive_lora_gps, "task_lora_rx", 2048, NULL, 5, NULL);
 }
 

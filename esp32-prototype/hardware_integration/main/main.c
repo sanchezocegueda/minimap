@@ -1,11 +1,6 @@
-#include <RadioLib.h>
-#include "hal/ESP-IDF/EspHal.h"
-
 #include <nmea_parser.h>
+#include "lora.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 // SCREEN
 // #include <screen.h>
@@ -31,11 +26,13 @@ extern "C" {
 #include <calibrate.h>
 #include <common.h>
 // IMU
+#include "imu_irq.h"
+#include "esp_system.h"
+#include "mbedtls/aes.h" // need to include esp_system.h too??
 
+extern QueueHandle_t imu_irq_queue;
 
 static const char *IMU_TAG = "[IMU]";
-
-#define I2C_MASTER_NUM I2C_NUM_0 /*!< I2C port number for master dev */
 
 calibration_t cal = {
     .mag_offset = {.x = 8.476562, .y = 11.578125, .z = 9.960938},
@@ -82,44 +79,26 @@ static void transform_mag(vector_t *v)
 
 void run_imu(void)
 {
+  vector_t va, vg, vm;
+  // Get the Accelerometer, Gyroscope and Magnetometer values.
+  ESP_ERROR_CHECK(get_accel_gyro_mag(&va, &vg, &vm));
 
-  i2c_mpu9250_init(&cal);
-  ahrs_init(SAMPLE_FREQ_Hz, 0.8);
+  // Transform these values to the orientation of our device.
+  transform_accel_gyro(&va);
+  transform_accel_gyro(&vg);
+  transform_mag(&vm);
 
-  uint64_t i = 0;
-  while (true)
-  {
-    vector_t va, vg, vm;
+  // Apply the AHRS algorithm
+  ahrs_update(DEG2RAD(vg.x), DEG2RAD(vg.y), DEG2RAD(vg.z),
+              va.x, va.y, va.z,
+              vm.x, vm.y, vm.z);
 
-    // Get the Accelerometer, Gyroscope and Magnetometer values.
-    ESP_ERROR_CHECK(get_accel_gyro_mag(&va, &vg, &vm));
+  float temp;
+  ESP_ERROR_CHECK(get_temperature_celsius(&temp));
 
-    // Transform these values to the orientation of our device.
-    transform_accel_gyro(&va);
-    transform_accel_gyro(&vg);
-    transform_mag(&vm);
-
-    // Apply the AHRS algorithm
-    ahrs_update(DEG2RAD(vg.x), DEG2RAD(vg.y), DEG2RAD(vg.z),
-                va.x, va.y, va.z,
-                vm.x, vm.y, vm.z);
-
-    // Print the data out every 10 items
-    if (i++ % 10 == 0)
-    {
-      float temp;
-      ESP_ERROR_CHECK(get_temperature_celsius(&temp));
-
-      float heading, pitch, roll;
-      ahrs_get_euler_in_degrees(&heading, &pitch, &roll);
-      ESP_LOGI(IMU_TAG, "heading: %2.3f°, pitch: %2.3f°, roll: %2.3f°, Temp %2.3f°C", heading, pitch, roll, temp);
-
-      // Make the WDT happy
-      vTaskDelay(10000);
-    }
-
-    pause();
-  }
+  float heading, pitch, roll;
+  ahrs_get_euler_in_degrees(&heading, &pitch, &roll);
+  ESP_LOGI(IMU_TAG, "heading: %2.3f°, pitch: %2.3f°, roll: %2.3f°, Temp %2.3f°C", heading, pitch, roll, temp);
 }
 
 static void imu_task(void *arg)
@@ -130,7 +109,17 @@ static void imu_task(void *arg)
   calibrate_accel();
   calibrate_mag();
 #else
-  run_imu();
+  i2c_mpu9250_init(&cal);
+  imu_irq_init(); // Attach isr to INT pin, we will block on imu_irq_queue
+  ahrs_init(SAMPLE_FREQ_Hz, 0.8);
+
+  for (;;) {
+    int event;
+    if (xQueueReceive(imu_irq_queue, &event, portMAX_DELAY) && event == 1) {
+      run_imu();
+    }
+    vTaskDelay(1000);
+  }
 #endif
 
   // Exit
@@ -196,11 +185,8 @@ static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_ba
     }
 }
 
-#ifdef __cplusplus
-}
-#endif
 
-extern "C" void app_main(void) {
+void app_main(void) {
   /* NMEA parser configuration */
   nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
   /* init NMEA parser library */

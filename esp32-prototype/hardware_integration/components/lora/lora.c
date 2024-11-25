@@ -1,14 +1,13 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "freertos/queue.h"
 #include "esp_system.h"
 #include "driver/spi_master.h"
-#include "soc/gpio_num.h"
 #include "soc/gpio_struct.h"
 #include "driver/gpio.h"
-#include <stdint.h>
 #include <string.h>
+
+static bool rx = false;
 
 /*
  * Register definitions
@@ -73,18 +72,15 @@ static spi_device_handle_t __spi;
 static int __implicit;
 static long __frequency;
 
-/* Before transmitting, we config DIO0, to interrupt TX_DONE, and RX_DONE before receiving. */
-static bool __DIO0_RX = false;
+/* Luca: Interrupt support */
+#include "freertos/queue.h"
 
-
-/* You could also pass this as a parameter to lora_init if you wanted to define the queue elsewhere. */
-static QueueHandle_t lora_irq_queue = NULL;
-
+#define IRQ_GPIO_PIN 26 // move to lora_init(IRQ) ?
 #define ESP_INTR_FLAG_DEFAULT 0
-/* Sleep on the lora_irq_queue and send the mask according to __DIO_RX */
+
+static QueueHandle_t lora_irq_queue = NULL;
 static void IRAM_ATTR lora_isr_handler(void* arg);
-/* Configure IRQ_PIN for interrupts and attach lora_isr_handler. */
-static void lora_init_irq(gpio_num_t irq_pin);
+static void lora_init_irq(void);
 
 /**
  * Write a value to a register.
@@ -196,8 +192,8 @@ lora_sleep(void)
 void 
 lora_receive(void)
 {
-   lora_write_reg(REG_DIO_MAPPING_1, 0); /* Set DIO0 to interrupt when TxDone */
-   __DIO0_RX = true;
+   lora_write_reg(REG_DIO_MAPPING_1, 0); // Set DIO0 to interrupt when TxDone
+   rx = true;
    lora_write_reg(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_RX_CONTINUOUS);
 }
 
@@ -398,8 +394,13 @@ lora_init(void)
    return 1;
 }
 
-void
-lora_transmit_fifo(uint8_t *buf, int size)
+/**
+ * Send a packet.
+ * @param buf Data to be sent
+ * @param size Size of data.
+ */
+void 
+lora_send_packet(uint8_t *buf, int size)
 {
    /*
     * Transfer data to radio.
@@ -411,19 +412,9 @@ lora_transmit_fifo(uint8_t *buf, int size)
       lora_write_reg(REG_FIFO, *buf++);
    
    lora_write_reg(REG_PAYLOAD_LENGTH, size);
-}
-
-/**
- * Send a packet.
- * @param buf Data to be sent
- * @param size Size of data.
- */
-void 
-lora_send_packet(uint8_t *buf, int size)
-{
-   lora_transmit_fifo(buf, size);
-   lora_write_reg(REG_DIO_MAPPING_1, 1 << 6); /* Set DIO0 to interrupt when TxDone */
-   __DIO0_RX = false;
+   
+   lora_write_reg(REG_DIO_MAPPING_1, 1 << 6); // Set DIO0 to interrupt when TxDone
+   rx = false;
 
    /*
     * Start transmission and wait for conclusion.
@@ -528,25 +519,28 @@ lora_dump_registers(void)
 
 
 // LUCA: 
-static void IRAM_ATTR
-lora_isr_handler(void* arg)
-{
-   int event = __DIO0_RX ? IRQ_RX_DONE_MASK : IRQ_TX_DONE_MASK;
-   xQueueSendFromISR(lora_irq_queue, &event, NULL);
+static void IRAM_ATTR lora_isr_handler(void* arg) {
+   if(rx) {
+      int event = IRQ_RX_DONE_MASK;
+      xQueueSendFromISR(lora_irq_queue, &event, NULL);
+   } else {
+      int event = IRQ_TX_DONE_MASK;
+      xQueueSendFromISR(lora_irq_queue, &event, NULL);
+   }
 }
 
 
 // LUCA: 
-static void lora_init_irq(gpio_num_t irq_pin) {
+static void lora_init_irq(void) {
    gpio_config_t io_conf = {
-      .pin_bit_mask = 1ULL << irq_pin,
+      .pin_bit_mask = 1ULL << IRQ_GPIO_PIN,
       .mode = GPIO_MODE_INPUT,
-      .pull_up_en = GPIO_PULLDOWN_ENABLE,
+      .pull_up_en = GPIO_PULLUP_ENABLE,
       .intr_type = GPIO_INTR_POSEDGE
    };
    gpio_config(&io_conf);
 
    lora_irq_queue = xQueueCreate(10, sizeof(int));
    gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
-   gpio_isr_handler_add(irq_pin, lora_isr_handler, NULL);
+   gpio_isr_handler_add(IRQ_GPIO_PIN, lora_isr_handler, NULL);
 }

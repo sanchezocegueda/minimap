@@ -115,12 +115,16 @@
 #define MPU9250_USERCTRL_I2C_MST_EN_BIT (5)
 #define MPU9250_USERCTRL_I2C_IF_DIS_BIT (4)
 #define MPU9250_USERCTRL_DMP_RESET_BIT (3)
-#define MPU9250_USERCTRL_FIFO_RESET_BIT (2)
+#define MPU9250_USERCTRL_FIFO_RESET_BIT (2)>
 #define MPU9250_USERCTRL_I2C_MST_RESET_BIT (1)
 #define MPU9250_USERCTRL_SIG_COND_RESET_BIT (0)
 
 #define BYTE_2_INT_BE(byte, i) ((int16_t)((byte[i] << 8) + (byte[i + 1])))
 #define BYTE_2_INT_LE(byte, i) ((int16_t)((byte[i + 1] << 8) + (byte[i])))
+
+#define I2C_MASTER_SCL_IO 19     /*!< gpio number for I2C master clock */
+#define I2C_MASTER_SDA_IO 23     /*!< gpio number for I2C master data  */
+#define I2C_MASTER_NUM I2C_NUM_0 /*!< I2C port number for master dev */
 
 typedef struct
 {

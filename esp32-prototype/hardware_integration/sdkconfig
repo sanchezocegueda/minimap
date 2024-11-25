@@ -1915,6 +1915,16 @@ CONFIG_WIFI_PROV_STA_ALL_CHANNEL_SCAN=y
 # end of Wi-Fi Provisioning Manager
 
 #
+# LoRa Configuration
+#
+CONFIG_CS_GPIO=13
+CONFIG_RST_GPIO=35
+CONFIG_MISO_GPIO=14
+CONFIG_MOSI_GPIO=12
+CONFIG_SCK_GPIO=27
+# end of LoRa Configuration
+
+#
 # MPU9250 Configuration
 #
 # CONFIG_CALIBRATION_MODE is not set
