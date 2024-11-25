@@ -16,20 +16,26 @@
  *                                                                           *
  *****************************************************************************/
 
-#ifndef __COMMON_H
-#define __COMMON_H
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
-#include <math.h>
+#include "common.h"
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
+void pause(void)
+{
 
-#define SAMPLE_FREQ_Hz (CONFIG_SAMPLE_RATE_Hz)
-#define SAMPLE_INTERVAL_MS (1000 / SAMPLE_FREQ_Hz) // Sample Rate in milliseconds
+  static uint64_t start = 0;
+  uint64_t end = xTaskGetTickCount() * 1000 / configTICK_RATE_HZ;
 
-#define DEG2RAD(deg) (deg * M_PI / 180.0f)
+  if (start == 0)
+  {
+    start = xTaskGetTickCount() / configTICK_RATE_HZ;
+  }
 
-void imu_pause(void);
-
-#endif
+  int32_t elapsed = end - start;
+  if (elapsed < SAMPLE_INTERVAL_MS)
+  {
+    vTaskDelay((SAMPLE_INTERVAL_MS - elapsed) / portTICK_PERIOD_MS);
+  }
+  start = xTaskGetTickCount() * 1000 / configTICK_RATE_HZ;
+}

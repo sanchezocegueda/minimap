@@ -30,6 +30,6 @@
 
 #define DEG2RAD(deg) (deg * M_PI / 180.0f)
 
-void imu_pause(void);
+void pause(void);
 
 #endif

@@ -16,20 +16,11 @@
  *                                                                           *
  *****************************************************************************/
 
-#ifndef __COMMON_H
-#define __COMMON_H
+#ifndef __CALIBRATE_H
+#define __CALIBRATE_H
 
-#include <math.h>
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
-
-#define SAMPLE_FREQ_Hz (CONFIG_SAMPLE_RATE_Hz)
-#define SAMPLE_INTERVAL_MS (1000 / SAMPLE_FREQ_Hz) // Sample Rate in milliseconds
-
-#define DEG2RAD(deg) (deg * M_PI / 180.0f)
-
-void imu_pause(void);
+void calibrate_gyro(void);
+void calibrate_accel(void);
+void calibrate_mag(void);
 
 #endif

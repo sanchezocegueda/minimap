@@ -21,7 +21,7 @@
 
 #include "common.h"
 
-void pause(void)
+void imu_pause(void)
 {
 
   static uint64_t start = 0;

@@ -101,7 +101,7 @@ void calibrate_gyro(void)
     if (i % 100 == 0)
       vTaskDelay(0);
 
-    imu_pause();
+    pause();
   }
 
   vg_sum.x /= -NUM_GYRO_READS;

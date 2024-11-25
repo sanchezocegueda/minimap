@@ -34,13 +34,13 @@ void imu_irq_init(void)
 
   /* See MPU9250 Register Map and Descriptions section */
   // Setup Interrupt enabled register
-  ESP_ERROR_CHECK(i2c_write_byte(I2C_MASTER_NUM, MPU9250_I2C_ADDR, MPU9250_RA_INT_ENABLE, MPU9250_RAW_RDY_EN_BIT));
+  ESP_ERROR_CHECK(i2c_write_byte(I2C_MASTER_NUM, MPU9250_I2C_ADDR, MPU9250_RA_INT_ENABLE, 1 << MPU9250_RAW_RDY_EN_BIT));
   // We don't want to delay on the FSYNC data to be ready because we don't have any!
   ESP_ERROR_CHECK(i2c_write_bit(I2C_MASTER_NUM, MPU9250_I2C_ADDR, MPU9250_RA_I2C_MST_CTRL, MPU9250_WAIT_FOR_ES_BIT, 0));
 
   // Setup Interrupt Config register, 55
   /* Luca: for now, we won't check interrupt status register anyways, we will just process the isr and queue a task always */
-  ESP_ERROR_CHECK(i2c_write_byte(I2C_MASTER_NUM, MPU9250_I2C_ADDR, MPU9250_RA_INT_PIN_CFG, MPU9250_INTCFG_INT_ANYRD_2CLEAR_BIT));
+  ESP_ERROR_CHECK(i2c_write_byte(I2C_MASTER_NUM, MPU9250_I2C_ADDR, MPU9250_RA_INT_PIN_CFG, 1 << MPU9250_INTCFG_INT_ANYRD_2CLEAR_BIT));
 
 }
 

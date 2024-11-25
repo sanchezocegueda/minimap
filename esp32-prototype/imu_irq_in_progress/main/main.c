@@ -1,6 +1,7 @@
 #include <nmea_parser.h>
 #include "lora.h"
 
+
 // SCREEN
 // #include <screen.h>
 
@@ -24,13 +25,12 @@
 #include <mpu9250.h>
 #include <calibrate.h>
 #include <common.h>
-#define I2C_MASTER_NUM I2C_NUM_0 /*!< I2C port number for master dev */
 // IMU
-
-// Crypto
+#include "imu_irq.h"
 #include "esp_system.h"
 #include "mbedtls/aes.h" // need to include esp_system.h too??
-// Crypto
+
+extern QueueHandle_t imu_irq_queue;
 
 static const char *IMU_TAG = "[IMU]";
 
@@ -77,47 +77,35 @@ static void transform_mag(vector_t *v)
   v->z = -x;
 }
 
+uint32_t imu_counter = 0;
+
 void run_imu(void)
 {
-  i2c_mpu9250_init(&cal);
-  ahrs_init(SAMPLE_FREQ_Hz, 0.8);
+  vector_t va, vg, vm;
+  // Get the Accelerometer, Gyroscope and Magnetometer values.
+  ESP_ERROR_CHECK(get_accel_gyro_mag(&va, &vg, &vm));
 
-  uint64_t i = 0;
-  while (true)
-  {
-    vector_t va, vg, vm;
+  // Transform these values to the orientation of our device.
+  transform_accel_gyro(&va);
+  transform_accel_gyro(&vg);
+  transform_mag(&vm);
 
-    // Get the Accelerometer, Gyroscope and Magnetometer values.
-    ESP_ERROR_CHECK(get_accel_gyro_mag(&va, &vg, &vm));
+  // Apply the AHRS algorithm
+  ahrs_update(DEG2RAD(vg.x), DEG2RAD(vg.y), DEG2RAD(vg.z),
+              va.x, va.y, va.z,
+              vm.x, vm.y, vm.z);
 
-    // Transform these values to the orientation of our device.
-    transform_accel_gyro(&va);
-    transform_accel_gyro(&vg);
-    transform_mag(&vm);
+  if (imu_counter++ % 10 == 0) {
+    float temp;
+    ESP_ERROR_CHECK(get_temperature_celsius(&temp));
 
-    // Apply the AHRS algorithm
-    ahrs_update(DEG2RAD(vg.x), DEG2RAD(vg.y), DEG2RAD(vg.z),
-                va.x, va.y, va.z,
-                vm.x, vm.y, vm.z);
-
-    // Print the data out every 10 items
-    if (i++ % 10 == 0)
-    {
-      float temp;
-      ESP_ERROR_CHECK(get_temperature_celsius(&temp));
-
-      float heading, pitch, roll;
-      ahrs_get_euler_in_degrees(&heading, &pitch, &roll);
-      ESP_LOGI(IMU_TAG, "heading: %2.3f°, pitch: %2.3f°, roll: %2.3f°, Temp %2.3f°C", heading, pitch, roll, temp);
-
-      // Make the WDT happy
-      vTaskDelay(5);
-    }
-
-    imu_pause();
+    float heading, pitch, roll;
+    ahrs_get_euler_in_degrees(&heading, &pitch, &roll);
+    ESP_LOGI(IMU_TAG, "heading: %2.3f°, pitch: %2.3f°, roll: %2.3f°, Temp %2.3f°C", heading, pitch, roll, temp);
+    vTaskDelay(1000); // Make the WDT happy
   }
+  pause();
 }
-
 
 static void imu_task(void *arg)
 {
@@ -127,7 +115,21 @@ static void imu_task(void *arg)
   calibrate_accel();
   calibrate_mag();
 #else
-  run_imu();
+  i2c_mpu9250_init(&cal);
+  imu_irq_init(); // Attach isr to INT pin, we will block on imu_irq_queue
+  ahrs_init(SAMPLE_FREQ_Hz, 0.8);
+
+  ESP_LOGI("[DEBUG]", "imu task started");
+
+  for (;;) {
+    // int event;
+    // if (xQueueReceive(imu_irq_queue, &event, portMAX_DELAY) && event == 1) {
+    //   ESP_LOGI("[DEBUG]", "received interrupt"); // received interrupt
+    //   run_imu();
+    // }
+
+    run_imu();
+  }
 #endif
 
   // Exit
