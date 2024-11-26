@@ -1,0 +1,2 @@
+# Correct clock rate for serial output
+CONFIG_XTAL_FREQ_26=y

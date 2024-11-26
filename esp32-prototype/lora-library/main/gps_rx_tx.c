@@ -91,7 +91,9 @@ static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_ba
 
 /* Format latitude, longitude, altitude and send via lora */
 static void send_lora_gps(float latitude, float longitude, float altitude) {
+   // encryption 
    float buf[3] = {latitude, longitude, altitude};
+   
    lora_send_packet((uint8_t*)buf, 3 * sizeof(float));
    ESP_LOGI("[LORA_TX_GPS]", "Lat: %0.5f, Long: %0.5f, Altitude: %0.5f", latitude, longitude, altitude);
 }
@@ -113,13 +115,25 @@ void app_main()
    lora_set_frequency(915e6);
    lora_enable_crc();
 
+   // Varun Encryption stuff ===============
+   // char key[256];  // defaulting to zeros
+   // unsigned int keybits = 256;
+
+   // mbedtls_aes_xts_context ctx;
+   // mbedtls_aes_xts_context * ctx_ptr = &ctx;
+   // mbedtls_aes_xts_init(ctx_ptr);
+
+   // mbedtls_aes_xts_setkey_enc(ctx_ptr, key, keybits)
+   // Varun Encryption stuff ===============
+
+
    // Setup GPS event handler to send data using `send_lora_gps`
 //   nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
 //   nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
 //   nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL);
 
-   // xTaskCreate(&task_tx, "task_tx", 2048, NULL, 5, NULL);
-   xTaskCreate(&task_rx, "task_rx", 2048, NULL, 5, NULL);
+   xTaskCreate(&task_tx, "task_tx", 2048, NULL, 5, NULL);
+   // xTaskCreate(&task_rx, "task_rx", 2048, NULL, 5, NULL);
    // xTaskCreate(&receive_lora_gps, "task_lora_rx", 2048, NULL, 5, NULL);
 }
 

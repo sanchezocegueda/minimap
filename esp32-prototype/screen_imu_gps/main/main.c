@@ -71,10 +71,10 @@ static const char *SCREEN_TAG = "[SCREEN]";
 #define EXAMPLE_LCD_BK_LIGHT_OFF_LEVEL !EXAMPLE_LCD_BK_LIGHT_ON_LEVEL
 
 // Pins for our screen
-#define EXAMPLE_PIN_NUM_SCLK           22
+#define EXAMPLE_PIN_NUM_SCLK           16
 #define EXAMPLE_PIN_NUM_MOSI           17
 #define EXAMPLE_PIN_NUM_LCD_DC         4
-#define EXAMPLE_PIN_NUM_LCD_RST        2
+#define EXAMPLE_PIN_NUM_LCD_RST        15
 #define EXAMPLE_PIN_NUM_LCD_CS         0
 
 // Unused
@@ -318,12 +318,12 @@ static const char *IMU_TAG = "[IMU]";
 #define I2C_MASTER_NUM I2C_NUM_0 /*!< I2C port number for master dev */
 
 calibration_t cal = {
-    .mag_offset = {.x = 8.476562, .y = 11.578125, .z = 9.960938},
-    .mag_scale = {.x = 0.970968, .y = 1.035335, .z = 0.995789},
-    .gyro_bias_offset = {.x = -0.840523, .y = -0.754751, .z = -1.463743},
-    .accel_offset = {.x = 0.019448, .y = 0.045232, .z = 0.084993},
-    .accel_scale_lo = {.x = 1.021489, .y = 1.022823, .z = 1.049751},
-    .accel_scale_hi = {.x = -0.980145, .y = -0.977748, .z = -0.968229}};
+    .mag_offset = {.x = -5.449219, .y = -4.875000, .z = 13.476562},
+    .mag_scale = {.x = 1.175105, .y = 0.930902, .z = 0.930418},
+    .gyro_bias_offset = {.x = -0.940880, .y = -0.704113, .z = -1.574584},
+    .accel_offset = {.x = 0.033275, .y = 0.086760, .z = 0.103982},
+    .accel_scale_lo = {.x = 1.013889, .y = 1.026322, .z = 1.050056},
+    .accel_scale_hi = {.x = -0.982644, .y = -0.976446, .z = -0.974061}};
 
 
 /**
@@ -390,10 +390,10 @@ void run_imu(void)
       float temp;
       ESP_ERROR_CHECK(get_temperature_celsius(&temp));
 
-      float heading, pitch, roll;
-      ahrs_get_euler_in_degrees(&heading, &pitch, &roll);
+    //   float heading, pitch, roll;
+    //   ahrs_get_euler_in_degrees(&heading, &pitch, &roll);
       ahrs_get_euler_in_degrees(&global_imu.heading, &global_imu.pitch, &global_imu.roll);
-      ESP_LOGI(IMU_TAG, "heading: %2.3f°, pitch: %2.3f°, roll: %2.3f°, Temp %2.3f°C", heading, pitch, roll, temp);
+      ESP_LOGI(IMU_TAG, "heading: %2.3f°, pitch: %2.3f°, roll: %2.3f°, Temp %2.3f°C", global_imu.heading, global_imu.pitch, global_imu.roll, temp);
         // TODO: send data to static variable
       // Make the WDT happy
       vTaskDelay(5);
@@ -486,7 +486,7 @@ void app_main(void)
     // /* register event handler for NMEA parser library */
     // nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL);
 
-    xTaskCreatePinnedToCore(imu_task, "imu_task", 4096, NULL, 10, NULL, 1);
+    xTaskCreate(imu_task, "imu_task", 4096, NULL, 10, NULL);
 
-    // start_screen();
+    start_screen();
 }

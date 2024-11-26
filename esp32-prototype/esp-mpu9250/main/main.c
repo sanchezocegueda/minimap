@@ -41,12 +41,12 @@ static const char *TAG = "main";
 #define I2C_MASTER_NUM I2C_NUM_0 /*!< I2C port number for master dev */
 
 calibration_t cal = {
-    .mag_offset = {.x = 8.476562, .y = 11.578125, .z = 9.960938},
-    .mag_scale = {.x = 0.970968, .y = 1.035335, .z = 0.995789},
-    .gyro_bias_offset = {.x = -0.840523, .y = -0.754751, .z = -1.463743},
-    .accel_offset = {.x = 0.019448, .y = 0.045232, .z = 0.084993},
-    .accel_scale_lo = {.x = 1.021489, .y = 1.022823, .z = 1.049751},
-    .accel_scale_hi = {.x = -0.980145, .y = -0.977748, .z = -0.968229}};
+    .mag_offset = {.x = -5.449219, .y = -4.875000, .z = 13.476562},
+    .mag_scale = {.x = 1.175105, .y = 0.930902, .z = 0.930418},
+    .gyro_bias_offset = {.x = -0.940880, .y = -0.704113, .z = -1.574584},
+    .accel_offset = {.x = 0.033275, .y = 0.086760, .z = 0.103982},
+    .accel_scale_lo = {.x = 1.013889, .y = 1.026322, .z = 1.050056},
+    .accel_scale_hi = {.x = -0.982644, .y = -0.976446, .z = -0.974061}};
 
 
 /**

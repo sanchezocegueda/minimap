@@ -3,13 +3,12 @@
 **Legend:** \<peripheral pin\> : \<esp32 gpio pin\>, \<description\>
 
 ## IMU
-- `SCL`: `19`, Serial clock
-- `SDA`: `23`, Serial in
-- `AD0`: `18`, Serial interface
-- `INT`: `5`, Interrupt pin
+- `SCL`: `22`, Serial clock
+- `SDA`: `19`, Serial in
+- `INT`: `23`, Interrupt pin
 
 ## Screen
-- `RST`: `2`, Reset screen
+- `RST`: `15`, Reset screen
 - `CS`: `0`, SPI chip select
 - `DC`: `4`, Data or command
 - `SDA`: `17`, Serial in
@@ -25,8 +24,7 @@
 - `RST`: `RST`, Reset radio
 
 ## GPS
-- `TX`: `TX`, Serial transmit
-- `RX`: `RX`, Serial receive
+- `TX`: `18`, Serial transmit
 
 ## UI
 2 buttons eventually connected to GPIO
