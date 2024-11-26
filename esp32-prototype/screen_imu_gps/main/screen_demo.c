@@ -20,6 +20,7 @@
 
 #define CAMPANILE_LONGITUDE  125.25778
 #define CAMPANILE_LATITUDE   37.87194
+#define EARTH_RADIUS_M       6371000.0
 
 /* TODO: Find a way to make this cleaner */
 
@@ -171,6 +172,8 @@ void draw_heading(imu_data_t* global_imu)
     float y = r * sinf(theta);
 
     add_bubble(x, y, "N");
+    ESP_LOGI("[DEBUG]", "%0.5f\t%0.5f", x, y);
+    add_bubble(0, 0, "you");
 
 }
 
@@ -182,7 +185,7 @@ void update_screen(lv_display_t *disp, gps_t* global_gps, imu_data_t* global_imu
     lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x020C0E), LV_PART_MAIN);
     
     /* Write GPS data */
-    // display_gps_text(global_gps);
+    display_gps_text(global_gps);
 
     /* Write IMU data */
     // display_imu_text(global_imu);
@@ -192,7 +195,7 @@ void update_screen(lv_display_t *disp, gps_t* global_gps, imu_data_t* global_imu
 
 
     /* Draw */
-    draw_heading(global_imu);
-    draw_campanile(global_gps);
+    // draw_heading(global_imu);
+    // draw_campanile(global_gps);
     
 }
