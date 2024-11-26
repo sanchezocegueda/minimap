@@ -365,7 +365,7 @@ lora_init(void)
    ret = spi_bus_add_device(VSPI_HOST, &dev, &__spi);
    assert(ret == ESP_OK);
 
-   lora_init_irq();
+   lora_init_irq(26);
 
    /*
     * Perform hardware reset.

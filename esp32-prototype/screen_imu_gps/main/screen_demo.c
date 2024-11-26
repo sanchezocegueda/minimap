@@ -21,6 +21,7 @@
 #define CAMPANILE_LONGITUDE  125.25778
 #define CAMPANILE_LATITUDE   37.87194
 #define EARTH_RADIUS_M       6371000.0
+#define SCREEN_RADIUS        100
 
 /* TODO: Find a way to make this cleaner */
 
@@ -38,14 +39,14 @@ static const char* DEMO_TAG = "[DEMO]";
 
 static lv_obj_t * btn;
 static lv_display_rotation_t rotation = LV_DISP_ROTATION_270;
-static int screen_radius = 100;
+
 typedef struct pos {
     float lat;
     float lon;
 } pos_t;
 
 float deg_to_rad(float deg) {
-    return deg * (M_PI / 180.0);
+    return deg * (M_PI / 180.0f);
 }
 
 void calculate_distance(float lat1, float lon1, float lat2, float lon2, float* x, float* y) {
@@ -116,7 +117,7 @@ void display_screen(pos_t * curr_pos, pos_t * other_pos[], int num_other, float 
         }
     }
     add_bubble(0, 0, "you");
-    float screen_scale = screen_radius / max_dist_abs;
+    float screen_scale = SCREEN_RADIUS / max_dist_abs;
     for (int i = 0; i < num_other; i++) {
         float x_ofs = other_pos[i]->lat * screen_scale ;
         float y_ofs = -1 * other_pos[i]->lon * screen_scale;  
@@ -166,8 +167,8 @@ void draw_campanile(gps_t* global_gps)
 
 void draw_heading(imu_data_t* global_imu)
 {
-    float r = LV_RADIUS_CIRCLE;
-    float theta = global_imu->heading;
+    float r = SCREEN_RADIUS / 2;
+    float theta = deg_to_rad(global_imu->heading);
     float x = r * cosf(theta);
     float y = r * sinf(theta);
 
@@ -185,7 +186,7 @@ void update_screen(lv_display_t *disp, gps_t* global_gps, imu_data_t* global_imu
     lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x020C0E), LV_PART_MAIN);
     
     /* Write GPS data */
-    display_gps_text(global_gps);
+    // display_gps_text(global_gps);
 
     /* Write IMU data */
     // display_imu_text(global_imu);
@@ -195,7 +196,7 @@ void update_screen(lv_display_t *disp, gps_t* global_gps, imu_data_t* global_imu
 
 
     /* Draw */
-    // draw_heading(global_imu);
+    draw_heading(global_imu);
     // draw_campanile(global_gps);
     
 }

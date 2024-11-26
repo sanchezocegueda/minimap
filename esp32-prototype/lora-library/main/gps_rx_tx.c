@@ -13,6 +13,10 @@
 // #include "freertos/task.h"
 // #include "esp_log.h"
 
+// shouldn't need 
+// #include "esp_system.h"
+#include "mbedtls/aes.h"
+
 static const char *GPS_TAG = "[GPS]";
 
 #define TIME_ZONE (-8)   // PST
@@ -102,22 +106,20 @@ void receive_lora_gps(void*) {
    }
 }
 
-/* Uncomment only the NMEA stuff to load a GPS transmit binary, uncomment only a given rx counter task, tx counter task, or receive_lora_gps task */
+/* Uncomment only the NMEA stuff to load a GPS transmit binary, uncomment only one of a given rx counter task, tx counter task, or receive_lora_gps task */
 void app_main()
 {
    lora_init();
    lora_set_frequency(915e6);
    lora_enable_crc();
 
-   /* NMEA parser configuration */
+   // Setup GPS event handler to send data using `send_lora_gps`
 //   nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
-   /* init NMEA parser library */
 //   nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
-   /* register event handler for NMEA parser library */
 //   nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL);
 
    // xTaskCreate(&task_tx, "task_tx", 2048, NULL, 5, NULL);
-   // xTaskCreate(&task_rx, "task_rx", 2048, NULL, 5, NULL);
-   xTaskCreate(&receive_lora_gps, "task_lora_rx", 2048, NULL, 5, NULL);
+   xTaskCreate(&task_rx, "task_rx", 2048, NULL, 5, NULL);
+   // xTaskCreate(&receive_lora_gps, "task_lora_rx", 2048, NULL, 5, NULL);
 }
 

@@ -71,7 +71,7 @@ static const char *SCREEN_TAG = "[SCREEN]";
 #define EXAMPLE_LCD_BK_LIGHT_OFF_LEVEL !EXAMPLE_LCD_BK_LIGHT_ON_LEVEL
 
 // Pins for our screen
-#define EXAMPLE_PIN_NUM_SCLK           16
+#define EXAMPLE_PIN_NUM_SCLK           22
 #define EXAMPLE_PIN_NUM_MOSI           17
 #define EXAMPLE_PIN_NUM_LCD_DC         4
 #define EXAMPLE_PIN_NUM_LCD_RST        2
@@ -479,13 +479,14 @@ static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_ba
 
 void app_main(void)
 {
-    /* NMEA parser configuration */
-    nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
-    /* init NMEA parser library */
-    nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
-    /* register event handler for NMEA parser library */
-    nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL);
+    // /* NMEA parser configuration */
+    // nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
+    // /* init NMEA parser library */
+    // nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
+    // /* register event handler for NMEA parser library */
+    // nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL);
+
     xTaskCreatePinnedToCore(imu_task, "imu_task", 4096, NULL, 10, NULL, 1);
 
-    start_screen();
+    // start_screen();
 }
