@@ -101,7 +101,22 @@ static const char *SCREEN_TAG = "[SCREEN]";
 static _lock_t lvgl_api_lock;
 static lv_disp_t * display;
 
-extern void screen_demo_ui(lv_disp_t *disp);
+// TODO: Remove this and replace with a more ESP-IDF solution
+
+/* Static structs for holding personal data*/
+
+static gps_t global_gps;
+
+typedef struct {
+    float heading;
+    float roll;
+    float pitch;
+} imu_data_t;
+
+static imu_data_t global_imu;
+
+/* This is what actually draws stuff on the screen */
+extern void screen_demo_ui(lv_disp_t *disp, gps_t* global_gps, imu_data_t* global_imu);
 
 static bool example_notify_lvgl_flush_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
 {
@@ -154,34 +169,13 @@ static void example_lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uin
     esp_lcd_panel_draw_bitmap(panel_handle, offsetx1, offsety1, offsetx2 + 1, offsety2 + 1, px_map);
 }
 
-#if CONFIG_EXAMPLE_LCD_TOUCH_ENABLED
-static void example_lvgl_touch_cb(lv_indev_t * indev, lv_indev_data_t * data)
-{
-    uint16_t touchpad_x[1] = {0};
-    uint16_t touchpad_y[1] = {0};
-    uint8_t touchpad_cnt = 0;
-
-    esp_lcd_touch_handle_t touch_pad = lv_indev_get_user_data(indev);
-    esp_lcd_touch_read_data(touch_pad);
-    /* Get coordinates */
-    bool touchpad_pressed = esp_lcd_touch_get_coordinates(touch_pad, touchpad_x, touchpad_y, NULL, &touchpad_cnt, 1);
-
-    if (touchpad_pressed && touchpad_cnt > 0) {
-        data->point.x = touchpad_x[0];
-        data->point.y = touchpad_y[0];
-        data->state = LV_INDEV_STATE_PRESSED;
-    } else {
-        data->state = LV_INDEV_STATE_RELEASED;
-    }
-}
-#endif
-
 static void example_increase_lvgl_tick(void *arg)
 {
     /* Tell LVGL how many milliseconds has elapsed */
     lv_tick_inc(EXAMPLE_LVGL_TICK_PERIOD_MS);
 }
 
+/* The actual code that loops and updates the screen */
 static void example_lvgl_port_task(void *arg)
 {
     ESP_LOGI(SCREEN_TAG, "Starting LVGL task");
@@ -190,7 +184,7 @@ static void example_lvgl_port_task(void *arg)
     while (1) {
             // Lock the mutex due to the LVGL APIs are not thread-safe
         _lock_acquire(&lvgl_api_lock);
-        screen_demo_ui(display);
+        screen_demo_ui(display, &global_gps, &global_imu);
         time_till_next_ms = lv_timer_handler();
         _lock_release(&lvgl_api_lock);
         // in case of triggering a task watch dog time out
@@ -251,7 +245,7 @@ void start_screen(void) {
     ESP_LOGI(SCREEN_TAG, "Initialize LVGL library");
     lv_init();
 
-    // create a lvgl display
+    // TODO: rename EXAMPLE_LCD
     display = lv_display_create(EXAMPLE_LCD_H_RES, EXAMPLE_LCD_V_RES);
 
     // alloc draw buffers used by LVGL
@@ -272,53 +266,23 @@ void start_screen(void) {
     lv_display_set_flush_cb(display, example_lvgl_flush_cb);
 
     ESP_LOGI(SCREEN_TAG, "Install LVGL tick timer");
-    // Tick interface for LVGL (using esp_timer to generate 2ms periodic event)
+    // TODO: Tick interface for LVGL (using esp_timer to generate 2ms periodic event)
+    // IMPORTANT
     const esp_timer_create_args_t lvgl_tick_timer_args = {
         .callback = &example_increase_lvgl_tick,
         .name = "lvgl_tick"
     };
     esp_timer_handle_t lvgl_tick_timer = NULL;
-    ESP_ERROR_CHECK(esp_timer_create(&lvgl_tick_timer_args, &lvgl_tick_timer));
-    ESP_ERROR_CHECK(esp_timer_start_periodic(lvgl_tick_timer, EXAMPLE_LVGL_TICK_PERIOD_MS * 1000));
+    ESP_ERROR_CHECK(esp_timer_create(&lvgl_tick_timer_args, &lvgl_tick_timer)); // create timer (duh)
+    ESP_ERROR_CHECK(esp_timer_start_periodic(lvgl_tick_timer, EXAMPLE_LVGL_TICK_PERIOD_MS * 1000)); // Set period to 2ms (change if needed)
 
     ESP_LOGI(SCREEN_TAG, "Register io panel event callback for LVGL flush ready notification");
+    // TODO: what is LVGL flush ready?
     const esp_lcd_panel_io_callbacks_t cbs = {
         .on_color_trans_done = example_notify_lvgl_flush_ready,
     };
     /* Register done callback */
     ESP_ERROR_CHECK(esp_lcd_panel_io_register_event_callbacks(io_handle, &cbs, display));
-
-#if CONFIG_EXAMPLE_LCD_TOUCH_ENABLED
-    esp_lcd_panel_io_handle_t tp_io_handle = NULL;
-    esp_lcd_panel_io_spi_config_t tp_io_config = ESP_LCD_TOUCH_IO_SPI_STMPE610_CONFIG(EXAMPLE_PIN_NUM_TOUCH_CS);
-    // Attach the TOUCH to the SPI bus
-    ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)LCD_HOST, &tp_io_config, &tp_io_handle));
-
-    esp_lcd_touch_config_t tp_cfg = {
-        .x_max = EXAMPLE_LCD_H_RES,
-        .y_max = EXAMPLE_LCD_V_RES,
-        .rst_gpio_num = -1,
-        .int_gpio_num = -1,
-        .flags = {
-            .swap_xy = 0,
-            .mirror_x = 0,
-            .mirror_y = 0,
-        },
-    };
-    esp_lcd_touch_handle_t tp = NULL;
-
-#if CONFIG_EXAMPLE_LCD_TOUCH_CONTROLLER_STMPE610
-    ESP_LOGI(SCREEN_TAG, "Initialize touch controller STMPE610");
-    ESP_ERROR_CHECK(esp_lcd_touch_new_spi_stmpe610(tp_io_handle, &tp_cfg, &tp));
-#endif // CONFIG_EXAMPLE_LCD_TOUCH_CONTROLLER_STMPE610
-
-    static lv_indev_t *indev;
-    indev = lv_indev_create();  // Input device driver (Touch)
-    lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
-    lv_indev_set_display(indev, display);
-    lv_indev_set_user_data(indev, tp);
-    lv_indev_set_read_cb(indev, example_lvgl_touch_cb);
-#endif
 
     ESP_LOGI(SCREEN_TAG, "Create LVGL task");
     xTaskCreate(example_lvgl_port_task, "LVGL", EXAMPLE_LVGL_TASK_STACK_SIZE, NULL, EXAMPLE_LVGL_TASK_PRIORITY, NULL);
@@ -406,8 +370,9 @@ void run_imu(void)
 
       float heading, pitch, roll;
       ahrs_get_euler_in_degrees(&heading, &pitch, &roll);
+      ahrs_get_euler_in_degrees(&global_imu.heading, &global_imu.pitch, &global_imu.roll);
       ESP_LOGI(IMU_TAG, "heading: %2.3f°, pitch: %2.3f°, roll: %2.3f°, Temp %2.3f°C", heading, pitch, roll, temp);
-
+        // TODO: send data to static variable
       // Make the WDT happy
       vTaskDelay(5);
     }
@@ -464,15 +429,17 @@ static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_ba
     switch (event_id) {
     case GPS_UPDATE:
         gps = (gps_t *)event_data;
+        // global_gps = *((gps_t *)event_data);
+        global_gps.latitude += 1.1;
         /* print information parsed from GPS statements */
-        ESP_LOGI(GPS_TAG, "%d/%d/%d %d:%d:%d => \r\n"
-                 "\t\t\t\t\t\tlatitude   = %.05f°N\r\n"
-                 "\t\t\t\t\t\tlongitude = %.05f°E\r\n"
-                 "\t\t\t\t\t\taltitude   = %.02fm\r\n"
-                 "\t\t\t\t\t\tspeed      = %fm/s",
-                 gps->date.year + YEAR_BASE, gps->date.month, gps->date.day,
-                 gps->tim.hour + TIME_ZONE, gps->tim.minute, gps->tim.second,
-                 gps->latitude, gps->longitude, gps->altitude, gps->speed);
+        // ESP_LOGI(GPS_TAG, "%d/%d/%d %d:%d:%d => \r\n"
+        //          "\t\t\t\t\t\tlatitude   = %.05f°N\r\n"
+        //          "\t\t\t\t\t\tlongitude = %.05f°E\r\n"
+        //          "\t\t\t\t\t\taltitude   = %.02fm\r\n"
+        //          "\t\t\t\t\t\tspeed      = %fm/s",
+        //          gps->date.year + YEAR_BASE, gps->date.month, gps->date.day,
+        //          gps->tim.hour + TIME_ZONE, gps->tim.minute, gps->tim.second,
+        //          gps->latitude, gps->longitude, gps->altitude, gps->speed);
         break;
     case GPS_UNKNOWN:
         /* print unknown statements */

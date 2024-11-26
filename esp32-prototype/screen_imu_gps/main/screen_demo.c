@@ -13,6 +13,17 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <nmea_parser.h>
+
+/* TODO: Find a way to make this cleaner */
+
+typedef struct {
+    float heading;
+    float roll;
+    float pitch;
+} imu_data_t;
+
+static imu_data_t global_imu;
 
 static const char* DEMO_TAG = "[DEMO]";
 
@@ -77,6 +88,30 @@ void display_screen(pos_t * curr_pos, pos_t * other_pos[], int num_other, float 
 
 }
 
+void display_gps_text(gps_t* global_gps) 
+{
+    lv_obj_clean(lv_screen_active());
+    lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x020C0E), LV_PART_MAIN);
+    
+    char label[32];
+
+    sprintf(label, "lat = %.03f°N", global_gps->latitude);
+
+    add_bubble(0, -2, label);
+}
+
+void display_imu_text(imu_data_t* global_imu) 
+{
+    lv_obj_clean(lv_screen_active());
+    lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x020C0E), LV_PART_MAIN);
+    
+    char label[32];
+
+    sprintf(label, "heading = %.03f°", global_imu->heading);
+
+    add_bubble(0, 2, label);
+}
+
 
 static void btn_cb(lv_event_t * e)
 {
@@ -88,13 +123,28 @@ static void btn_cb(lv_event_t * e)
     lv_disp_set_rotation(disp, rotation);
 }
 
-void screen_demo_ui(lv_display_t *disp)
+void update_screen(lv_display_t* disp, gps_t* global_gps)
+{
+    // TODO
+}
+
+void screen_demo_ui(lv_display_t *disp, gps_t* global_gps, imu_data_t* global_imu)
 {
     lv_disp_set_rotation(disp, rotation);
     lv_obj_t *scr = lv_display_get_screen_active(disp);
     pos_t curr_pos = {0, 0};
     pos_t pos_1 = {rand() % 100, rand() % 100};
     pos_t * other_pos[2] = {&pos_1};
-    display_screen(&curr_pos, other_pos, 1, 0);
+    // display_screen(&curr_pos, other_pos, 1, 0);
+    ESP_LOGI("DEBUG", " => \r\n"
+                 "\t\t\t\t\t\tlatitude   = %.05f°N\r\n"
+                 "\t\t\t\t\t\tlongitude = %.05f°E\r\n"
+                 "\t\t\t\t\t\taltitude   = %.02fm\r\n"
+                 "\t\t\t\t\t\tspeed      = %fm/s",
+                //  gps->date.year + YEAR_BASE, gps->date.month, gps->date.day,
+                //  gps->tim.hour + TIME_ZONE, gps->tim.minute, gps->tim.second,
+                 global_gps->latitude, global_gps->longitude, global_gps->altitude, global_gps->speed);
+    // display_gps_text(global_gps);
+    display_imu_text(global_imu);
     
 }
