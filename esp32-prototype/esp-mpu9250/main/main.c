@@ -143,7 +143,7 @@ static void imu_task(void *arg)
   vTaskDelete(NULL);
 }
 
-extern "C" void app_main(void)
+void app_main(void)
 {
   // start i2c task
   xTaskCreate(imu_task, "imu_task", 4096, NULL, 10, NULL);

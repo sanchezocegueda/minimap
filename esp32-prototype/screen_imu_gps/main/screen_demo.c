@@ -46,9 +46,11 @@ void add_bubble(float x_ofs, float y_ofs, char * label) {
     lv_obj_align_to(person1_label, person1_bubble, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
 
 }
+
 float l2_dist(pos_t * pos) {
     return sqrt((pos->lat * pos->lat) + (pos->lon * pos->lon));
 }
+
 void display_screen(pos_t * curr_pos, pos_t * other_pos[], int num_other, float offset_angle) {
     lv_obj_clean(lv_screen_active());
     lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x020C0E), LV_PART_MAIN);
@@ -73,9 +75,9 @@ void display_screen(pos_t * curr_pos, pos_t * other_pos[], int num_other, float 
         lv_delay_ms(80);
     }
 
-
-
 }
+
+
 static void btn_cb(lv_event_t * e)
 {
     lv_display_t *disp = lv_event_get_user_data(e);

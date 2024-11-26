@@ -15,6 +15,7 @@ We need to get simple demo programs for all peripherals working. This means we h
 ## IMU
 - [x] Compile a driver and/or library
     - Decide on a library from: [here](https://github.com/hideakitai/MPU9250), or [here](https://git.sr.ht/~truita/esp-mpu9250/tree) (or if you find a better one)
+    - 
 - [ ] [IN PROGRESS] Convert library to use interrupts to wakeup the task
 - [ ] Basic IMU data display on screen
 - [ ] Calculate heading

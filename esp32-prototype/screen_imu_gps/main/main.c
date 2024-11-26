@@ -486,7 +486,6 @@ static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_ba
 
 void app_main(void)
 {
-
     /* NMEA parser configuration */
     nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
     /* init NMEA parser library */
