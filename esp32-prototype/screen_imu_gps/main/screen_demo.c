@@ -15,6 +15,12 @@
 #include <stdlib.h>
 #include <nmea_parser.h>
 
+
+/* Defines */
+
+#define CAMPANILE_LONGITUDE  125.25778
+#define CAMPANILE_LATITUDE   37.87194
+
 /* TODO: Find a way to make this cleaner */
 
 typedef struct {
@@ -27,6 +33,8 @@ static imu_data_t global_imu;
 
 static const char* DEMO_TAG = "[DEMO]";
 
+
+
 static lv_obj_t * btn;
 static lv_display_rotation_t rotation = LV_DISP_ROTATION_270;
 static int screen_radius = 100;
@@ -34,6 +42,38 @@ typedef struct pos {
     float lat;
     float lon;
 } pos_t;
+
+float deg_to_rad(float deg) {
+    return deg * (M_PI / 180.0);
+}
+
+void calculate_distance(float lat1, float lon1, float lat2, float lon2, float* x, float* y) {
+
+    float lat1_rad = deg_to_rad(lat1);
+    float lon1_rad = deg_to_rad(lon1);
+    float lat2_rad = deg_to_rad(lat2);
+    float lon2_rad = deg_to_rad(lon2);
+
+    float dlat = lat2_rad - lat1_rad;
+    float dlon = lon2_rad - lon1_rad;
+
+    // Haversine formula for distance
+    float a = sinf(dlat/2) * sinf(dlat/2) +
+               cosf(lat1_rad) * cosf(lat2_rad) *
+               sinf(dlon/2) * sinf(dlon/2);
+    float central_angle = 2 * atan2(sqrt(a), sqrt(1-a));
+
+    float total_distance = EARTH_RADIUS_M * central_angle;
+
+    // Calculate x and y components
+    // x is East-West (longitude difference)
+    // y is North-South (latitude difference)
+    *x = EARTH_RADIUS_M * (lon2_rad - lon1_rad) * 
+                  cos((lat1_rad + lat2_rad) / 2);
+    *y = EARTH_RADIUS_M * (lat2_rad - lat1_rad);
+
+    return;
+}
 
 void add_bubble(float x_ofs, float y_ofs, char * label) {
     
@@ -90,8 +130,6 @@ void display_screen(pos_t * curr_pos, pos_t * other_pos[], int num_other, float 
 
 void display_gps_text(gps_t* global_gps) 
 {
-    lv_obj_clean(lv_screen_active());
-    lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x020C0E), LV_PART_MAIN);
     
     char label[32];
 
@@ -112,39 +150,49 @@ void display_imu_text(imu_data_t* global_imu)
     add_bubble(0, 2, label);
 }
 
-
-static void btn_cb(lv_event_t * e)
+void draw_campanile(gps_t* global_gps)
 {
-    lv_display_t *disp = lv_event_get_user_data(e);
-    rotation++;
-    if (rotation > LV_DISP_ROTATION_270) {
-        rotation = LV_DISP_ROTATION_0;
-    }
-    lv_disp_set_rotation(disp, rotation);
+    float x_distance;
+    float y_distance;
+
+    calculate_distance(global_gps->latitude, global_gps->longitude, CAMPANILE_LATITUDE, CAMPANILE_LONGITUDE, &x_distance, &y_distance);
+
+    // TODO: Scale distance to the size of the screen
+    float x_ofs = 0;
+    float y_ofs = 0;
+
 }
 
-void update_screen(lv_display_t* disp, gps_t* global_gps)
+void draw_heading(imu_data_t* global_imu)
 {
-    // TODO
+    float r = LV_RADIUS_CIRCLE;
+    float theta = global_imu->heading;
+    float x = r * cosf(theta);
+    float y = r * sinf(theta);
+
+    add_bubble(x, y, "N");
+
 }
 
-void screen_demo_ui(lv_display_t *disp, gps_t* global_gps, imu_data_t* global_imu)
+/* Update information for the screen and display it. Gets called every 2ms. */
+void update_screen(lv_display_t *disp, gps_t* global_gps, imu_data_t* global_imu)
 {
-    lv_disp_set_rotation(disp, rotation);
-    lv_obj_t *scr = lv_display_get_screen_active(disp);
-    pos_t curr_pos = {0, 0};
-    pos_t pos_1 = {rand() % 100, rand() % 100};
-    pos_t * other_pos[2] = {&pos_1};
-    // display_screen(&curr_pos, other_pos, 1, 0);
-    ESP_LOGI("DEBUG", " => \r\n"
-                 "\t\t\t\t\t\tlatitude   = %.05f°N\r\n"
-                 "\t\t\t\t\t\tlongitude = %.05f°E\r\n"
-                 "\t\t\t\t\t\taltitude   = %.02fm\r\n"
-                 "\t\t\t\t\t\tspeed      = %fm/s",
-                //  gps->date.year + YEAR_BASE, gps->date.month, gps->date.day,
-                //  gps->tim.hour + TIME_ZONE, gps->tim.minute, gps->tim.second,
-                 global_gps->latitude, global_gps->longitude, global_gps->altitude, global_gps->speed);
+    /* Reset the screen */
+    lv_obj_clean(lv_screen_active());
+    lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x020C0E), LV_PART_MAIN);
+    
+    /* Write GPS data */
     // display_gps_text(global_gps);
-    display_imu_text(global_imu);
+
+    /* Write IMU data */
+    // display_imu_text(global_imu);
+    
+    /* Get LoRa data */
+    // TODO
+
+
+    /* Draw */
+    draw_heading(global_imu);
+    draw_campanile(global_gps);
     
 }

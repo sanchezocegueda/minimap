@@ -116,7 +116,7 @@ typedef struct {
 static imu_data_t global_imu;
 
 /* This is what actually draws stuff on the screen */
-extern void screen_demo_ui(lv_disp_t *disp, gps_t* global_gps, imu_data_t* global_imu);
+extern void update_screen(lv_disp_t *disp, gps_t* global_gps, imu_data_t* global_imu);
 
 static bool example_notify_lvgl_flush_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
 {
@@ -176,7 +176,7 @@ static void example_increase_lvgl_tick(void *arg)
 }
 
 /* The actual code that loops and updates the screen */
-static void example_lvgl_port_task(void *arg)
+static void screen_main_task(void *arg)
 {
     ESP_LOGI(SCREEN_TAG, "Starting LVGL task");
     uint32_t time_till_next_ms = 0;
@@ -184,7 +184,24 @@ static void example_lvgl_port_task(void *arg)
     while (1) {
             // Lock the mutex due to the LVGL APIs are not thread-safe
         _lock_acquire(&lvgl_api_lock);
-        screen_demo_ui(display, &global_gps, &global_imu);
+        update_screen(display, &global_gps, &global_imu);
+        time_till_next_ms = lv_timer_handler();
+        _lock_release(&lvgl_api_lock);
+        // in case of triggering a task watch dog time out
+        time_till_next_ms = MAX(time_till_next_ms, time_threshold_ms);
+        usleep(1000 * time_till_next_ms);
+    }
+}
+
+static void screen_campanile_task(void *arg)
+{
+        ESP_LOGI(SCREEN_TAG, "Starting Campanile task");
+    uint32_t time_till_next_ms = 0;
+    uint32_t time_threshold_ms = 1000 / CONFIG_FREERTOS_HZ;
+    while (1) {
+        // Lock the mutex due to the LVGL APIs are not thread-safe
+        _lock_acquire(&lvgl_api_lock);
+        update_screen(display, &global_gps, &global_imu);
         time_till_next_ms = lv_timer_handler();
         _lock_release(&lvgl_api_lock);
         // in case of triggering a task watch dog time out
@@ -285,7 +302,12 @@ void start_screen(void) {
     ESP_ERROR_CHECK(esp_lcd_panel_io_register_event_callbacks(io_handle, &cbs, display));
 
     ESP_LOGI(SCREEN_TAG, "Create LVGL task");
-    xTaskCreate(example_lvgl_port_task, "LVGL", EXAMPLE_LVGL_TASK_STACK_SIZE, NULL, EXAMPLE_LVGL_TASK_PRIORITY, NULL);
+    if (1) {
+        xTaskCreate(screen_main_task, "Minimap", EXAMPLE_LVGL_TASK_STACK_SIZE, NULL, EXAMPLE_LVGL_TASK_PRIORITY, NULL);
+    } else {
+        xTaskCreate(screen_campanile_task, "Campanile", EXAMPLE_LVGL_TASK_STACK_SIZE, NULL, EXAMPLE_LVGL_TASK_PRIORITY, NULL);
+    }
+
 
     ESP_LOGI(SCREEN_TAG, "Display LVGL Meter Widget");
 
@@ -429,17 +451,21 @@ static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_ba
     switch (event_id) {
     case GPS_UPDATE:
         gps = (gps_t *)event_data;
-        // global_gps = *((gps_t *)event_data);
+        global_gps = *((gps_t *)event_data);
         global_gps.latitude += 1.1;
+        
         /* print information parsed from GPS statements */
-        // ESP_LOGI(GPS_TAG, "%d/%d/%d %d:%d:%d => \r\n"
-        //          "\t\t\t\t\t\tlatitude   = %.05f°N\r\n"
-        //          "\t\t\t\t\t\tlongitude = %.05f°E\r\n"
-        //          "\t\t\t\t\t\taltitude   = %.02fm\r\n"
-        //          "\t\t\t\t\t\tspeed      = %fm/s",
-        //          gps->date.year + YEAR_BASE, gps->date.month, gps->date.day,
-        //          gps->tim.hour + TIME_ZONE, gps->tim.minute, gps->tim.second,
-        //          gps->latitude, gps->longitude, gps->altitude, gps->speed);
+        if (0) {
+            ESP_LOGI(GPS_TAG, "%d/%d/%d %d:%d:%d => \r\n"
+                     "\t\t\t\t\t\tlatitude   = %.05f°N\r\n"
+                     "\t\t\t\t\t\tlongitude = %.05f°E\r\n"
+                     "\t\t\t\t\t\taltitude   = %.02fm\r\n"
+                     "\t\t\t\t\t\tspeed      = %fm/s",
+                     gps->date.year + YEAR_BASE, gps->date.month, gps->date.day,
+                     gps->tim.hour + TIME_ZONE, gps->tim.minute, gps->tim.second,
+                     gps->latitude, gps->longitude, gps->altitude, gps->speed);
+        }
+
         break;
     case GPS_UNKNOWN:
         /* print unknown statements */
