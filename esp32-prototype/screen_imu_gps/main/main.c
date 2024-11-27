@@ -63,33 +63,26 @@ static const char *SCREEN_TAG = "[SCREEN]";
 // Using SPI2 in the example, Luca: this is the software SPI interface
 #define LCD_HOST  SPI2_HOST
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////// Please update the following configuration according to your LCD spec //////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define EXAMPLE_LCD_PIXEL_CLOCK_HZ     (20 * 1000 * 1000)
 #define EXAMPLE_LCD_BK_LIGHT_ON_LEVEL  1
 #define EXAMPLE_LCD_BK_LIGHT_OFF_LEVEL !EXAMPLE_LCD_BK_LIGHT_ON_LEVEL
 
 // Pins for our screen
-#define EXAMPLE_PIN_NUM_SCLK           16
-#define EXAMPLE_PIN_NUM_MOSI           17
-#define EXAMPLE_PIN_NUM_LCD_DC         4
-#define EXAMPLE_PIN_NUM_LCD_RST        15
-#define EXAMPLE_PIN_NUM_LCD_CS         0
-
-// Unused
-#define EXAMPLE_PIN_NUM_MISO           21
-#define EXAMPLE_PIN_NUM_BK_LIGHT       2
-#define EXAMPLE_PIN_NUM_TOUCH_CS       36
+#define PIN_NUM_SCLK        (16)
+#define PIN_NUM_MOSI        (17)
+#define PIN_NUM_LCD_DC      (4)
+#define PIN_NUM_LCD_RST     (15)
+#define PIN_NUM_LCD_CS      (0)
 
 // The pixel number in horizontal and vertical
-#define EXAMPLE_LCD_H_RES              240
-#define EXAMPLE_LCD_V_RES              240
+#define LCD_H_RES           (240)
+#define LCD_V_RES           (240)
 
 // Bit number used to represent command and parameter
 #define EXAMPLE_LCD_CMD_BITS           8
 #define EXAMPLE_LCD_PARAM_BITS         8
 
+// TODO: Parameters we can tweak
 #define EXAMPLE_LVGL_DRAW_BUF_LINES    20 // number of display lines in each draw buffer
 #define EXAMPLE_LVGL_TICK_PERIOD_MS    2
 #define EXAMPLE_LVGL_TASK_MAX_DELAY_MS 500
@@ -213,26 +206,24 @@ static void screen_campanile_task(void *arg)
 void start_screen(void) {
     ESP_LOGI(SCREEN_TAG, "Initialize SPI bus");
     spi_bus_config_t buscfg = {
-        .sclk_io_num = EXAMPLE_PIN_NUM_SCLK,
-        .mosi_io_num = EXAMPLE_PIN_NUM_MOSI,
-        .miso_io_num = EXAMPLE_PIN_NUM_MISO,
+        .sclk_io_num = PIN_NUM_SCLK,
+        .mosi_io_num = PIN_NUM_MOSI,
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
-        .max_transfer_sz = EXAMPLE_LCD_H_RES * 80 * sizeof(uint16_t),
+        .max_transfer_sz = LCD_H_RES * 80 * sizeof(uint16_t),
     };
     ESP_ERROR_CHECK(spi_bus_initialize(LCD_HOST, &buscfg, SPI_DMA_CH_AUTO));
 
     ESP_LOGI(SCREEN_TAG, "Install panel IO");
     esp_lcd_panel_io_handle_t io_handle = NULL;
     esp_lcd_panel_io_spi_config_t io_config = {
-        .dc_gpio_num = EXAMPLE_PIN_NUM_LCD_DC,
-        .cs_gpio_num = EXAMPLE_PIN_NUM_LCD_CS,
-        //////////////////////////////////////
+        .dc_gpio_num = PIN_NUM_LCD_DC,
+        .cs_gpio_num = PIN_NUM_LCD_CS,
         // Not sure about these... See  https://docs.espressif.com/projects/esp-idf/en/v5.0.1/esp32/api-reference/peripherals/lcd.html#spi-interfaced-lcd
         .pclk_hz = EXAMPLE_LCD_PIXEL_CLOCK_HZ,
         .lcd_cmd_bits = EXAMPLE_LCD_CMD_BITS,
         .lcd_param_bits = EXAMPLE_LCD_PARAM_BITS,
-        ////////////////////////////////////////
+        //////////////////////////////////////
         .spi_mode = 0,
         .trans_queue_depth = 10,
     };
@@ -241,7 +232,7 @@ void start_screen(void) {
 
     esp_lcd_panel_handle_t panel_handle = NULL;
     esp_lcd_panel_dev_config_t panel_config = {
-        .reset_gpio_num = EXAMPLE_PIN_NUM_LCD_RST,
+        .reset_gpio_num = PIN_NUM_LCD_RST,
         .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_BGR,
         .bits_per_pixel = 16,
     };
@@ -257,17 +248,18 @@ void start_screen(void) {
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));
 
     ESP_LOGI(SCREEN_TAG, "Turn on LCD backlight");
-    gpio_set_level(EXAMPLE_PIN_NUM_BK_LIGHT, EXAMPLE_LCD_BK_LIGHT_ON_LEVEL);
+    // TODO: Figure out why the screen doesn't work without this.
+    gpio_set_level(2, EXAMPLE_LCD_BK_LIGHT_ON_LEVEL);
 
     ESP_LOGI(SCREEN_TAG, "Initialize LVGL library");
     lv_init();
 
     // TODO: rename EXAMPLE_LCD
-    display = lv_display_create(EXAMPLE_LCD_H_RES, EXAMPLE_LCD_V_RES);
+    display = lv_display_create(LCD_H_RES, LCD_V_RES);
 
     // alloc draw buffers used by LVGL
     // it's recommended to choose the size of the draw buffer(s) to be at least 1/10 screen sized
-    size_t draw_buffer_sz = EXAMPLE_LCD_H_RES * EXAMPLE_LVGL_DRAW_BUF_LINES * sizeof(lv_color16_t);
+    size_t draw_buffer_sz = LCD_H_RES * EXAMPLE_LVGL_DRAW_BUF_LINES * sizeof(lv_color16_t);
 
     void *buf1 = spi_bus_dma_memory_alloc(LCD_HOST, draw_buffer_sz, 0);
     assert(buf1);
@@ -455,17 +447,7 @@ static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_ba
         global_gps.latitude += 1.1;
         
         /* print information parsed from GPS statements */
-        if (0) {
-            ESP_LOGI(GPS_TAG, "%d/%d/%d %d:%d:%d => \r\n"
-                     "\t\t\t\t\t\tlatitude   = %.05f°N\r\n"
-                     "\t\t\t\t\t\tlongitude = %.05f°E\r\n"
-                     "\t\t\t\t\t\taltitude   = %.02fm\r\n"
-                     "\t\t\t\t\t\tspeed      = %fm/s",
-                     gps->date.year + YEAR_BASE, gps->date.month, gps->date.day,
-                     gps->tim.hour + TIME_ZONE, gps->tim.minute, gps->tim.second,
-                     gps->latitude, gps->longitude, gps->altitude, gps->speed);
-        }
-
+        // gps_debug(&global_gps);
         break;
     case GPS_UNKNOWN:
         /* print unknown statements */
@@ -474,6 +456,18 @@ static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_ba
     default:
         break;
     }
+}
+
+/* TODO: Move to NMEA_PARSER print information parsed from GPS statements */
+void gps_debug(gps_t* gps) {
+    ESP_LOGI(GPS_TAG, "%d/%d/%d %d:%d:%d => \r\n"
+                "\t\t\t\t\t\tlatitude   = %.05f°N\r\n"
+                "\t\t\t\t\t\tlongitude = %.05f°E\r\n"
+                "\t\t\t\t\t\taltitude   = %.02fm\r\n"
+                "\t\t\t\t\t\tspeed      = %fm/s",
+                gps->date.year + YEAR_BASE, gps->date.month, gps->date.day,
+                gps->tim.hour + TIME_ZONE, gps->tim.minute, gps->tim.second,
+                gps->latitude, gps->longitude, gps->altitude, gps->speed);
 }
 
 

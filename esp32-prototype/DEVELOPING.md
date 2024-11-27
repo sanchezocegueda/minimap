@@ -89,14 +89,4 @@ Read through the [basic use](https://github.com/espressif/vscode-esp-idf-extensi
 - [Project CMakeLists File](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/build-system.html#example-project)
 - [Minimal Project CMakeLists.txt file](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/build-system.html#minimal-example-cmakelists)
 
-[Hardware Abstraction Headers](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-guides/hardware-abstraction.html?highlight=reset%20pin#id1)
-
 May be useful later: [Tools](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/tools/idf-tools.html)
-
-# IDF Components Available
-Do not blindly use, look at download count
-- [RadioLib](https://components.espressif.com/components/jgromes/radiolib/versions/7.1.0)
-- [IMU](https://components.espressif.com/components/truita/mpu9250/versions/1.0.1)
-- [Display](https://components.espressif.com/components/espressif/esp_lcd_gc9a01/versions/2.0.0)
-
-# Security

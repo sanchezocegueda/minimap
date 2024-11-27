@@ -33,11 +33,6 @@ typedef struct {
 
 static imu_data_t global_imu;
 
-static const char* DEMO_TAG = "[DEMO]";
-
-
-
-static lv_obj_t * btn;
 static lv_display_rotation_t rotation = LV_DISP_ROTATION_270;
 
 typedef struct pos {
@@ -123,7 +118,7 @@ void display_screen(pos_t * curr_pos, pos_t * other_pos[], int num_other, float 
         float y_ofs = -1 * other_pos[i]->lon * screen_scale;  
         char label[16];
         sprintf(label, "Fren %d", i + 1);
-        ESP_LOGI(DEMO_TAG, "X_ofs: %f, y_ofs %f", x_ofs, y_ofs);
+        ESP_LOGI("[ALEX DEMO]", "X_ofs: %f, y_ofs %f", x_ofs, y_ofs);
         add_bubble(x_ofs, y_ofs, label);
         lv_delay_ms(80);
     }
