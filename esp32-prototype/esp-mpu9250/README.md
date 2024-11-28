@@ -1,3 +1,9 @@
+# LUCA TLDR
+- example code from the mpu9250 esp-idf library that demonstrates basic calibration and logs sensor values
+- The sensor values are kinda cooked, I think this library is just not well implemented and we will have to refactor a lot of their math.
+  - Even with calibration, heading is not accurate.
+- Origin of the mpu9250 and ahrs components
+
 # MPU9250 C driver for ESP8266 and ESP32
 
 This contains a driver for the [MPU9250](https://www.invensense.com/products/motion-tracking/9-axis/mpu-9250/),
