@@ -1,60 +1,66 @@
 #include "screen.h"
 
-extern const char *SCREEN_TAG = "[SCREEN]";
+static const char *SCREEN_TAG = "[SCREEN]";
 
 // LVGL library is not thread-safe, this example will call LVGL APIs from different tasks, so use a mutex to protect it
 static _lock_t lvgl_api_lock;
 static lv_disp_t * display;
 
+// TODO: Move to ui.h
+#include "nmea_parser.h"
+typedef struct {
+    float heading;
+    float roll;
+    float pitch;
+} imu_data_t;
+
+static imu_data_t global_imu;
+static gps_t global_gps;
+
+
 /* This is what actually draws stuff on the screen */
-// extern void update_screen(lv_disp_t *disp, gps_t* global_gps, imu_data_t* global_imu);
+extern void update_screen(lv_disp_t *disp, gps_t* global_gps, imu_data_t* global_imu);
 
 extern void varun_ui(lv_disp_t *disp);
 
 
-/* TODO: Figure out if needed */
-static bool example_notify_lvgl_flush_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
+/* TODO: Understand more */
+static bool notify_lvgl_flush_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
 {
     lv_display_t *disp = (lv_display_t *)user_ctx;
     lv_display_flush_ready(disp);
     return false;
 }
 
-/* Luca: Left as an example of how to rotate */
-/* Rotate display and touch, when rotated screen in LVGL. Called when driver parameters are updated. */
-static void example_lvgl_port_update_callback(lv_display_t *disp)
+/* Rotates the esp_lcd object to match the lvgl rotation. */
+static void rotate_esp_lcd(lv_display_t *disp)
 {
     esp_lcd_panel_handle_t panel_handle = lv_display_get_user_data(disp);
     lv_display_rotation_t rotation = lv_display_get_rotation(disp);
-
     switch (rotation) {
     case LV_DISPLAY_ROTATION_0:
-        // Rotate LCD display
         esp_lcd_panel_swap_xy(panel_handle, false);
         esp_lcd_panel_mirror(panel_handle, true, false);
         break;
     case LV_DISPLAY_ROTATION_90:
-        // Rotate LCD display
         esp_lcd_panel_swap_xy(panel_handle, true);
         esp_lcd_panel_mirror(panel_handle, true, true);
         break;
     case LV_DISPLAY_ROTATION_180:
-        // Rotate LCD display
         esp_lcd_panel_swap_xy(panel_handle, false);
         esp_lcd_panel_mirror(panel_handle, false, true);
         break;
     case LV_DISPLAY_ROTATION_270:
-        // Rotate LCD display
         esp_lcd_panel_swap_xy(panel_handle, true);
         esp_lcd_panel_mirror(panel_handle, false, false);
         break;
     }
 }
 
-/* TODO: Figure out if needed */
-static void example_lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
+/* TODO: Understand lvgl flush cb purpose in LVGL */
+static void lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
 {
-    example_lvgl_port_update_callback(disp);
+    rotate_esp_lcd(disp);
     esp_lcd_panel_handle_t panel_handle = lv_display_get_user_data(disp);
     int offsetx1 = area->x1;
     int offsetx2 = area->x2;
@@ -66,7 +72,7 @@ static void example_lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uin
     esp_lcd_panel_draw_bitmap(panel_handle, offsetx1, offsety1, offsetx2 + 1, offsety2 + 1, px_map);
 }
 
-static void example_increase_lvgl_tick(void *arg)
+static void increase_lvgl_tick(void *arg)
 {
     /* Tell LVGL how many milliseconds has elapsed */
     lv_tick_inc(LVGL_TICK_PERIOD_MS);
@@ -81,8 +87,8 @@ static void screen_main_task(void *arg)
     while (1) {
             // Lock the mutex due to the LVGL APIs are not thread-safe
         _lock_acquire(&lvgl_api_lock);
-        // update_screen(display, &global_gps, &global_imu);
-        varun_ui(display);
+        update_screen(display, &global_gps, &global_imu);
+        // varun_ui(display);
         time_till_next_ms = lv_timer_handler();
         _lock_release(&lvgl_api_lock);
         // in case of triggering a task watch dog time out
@@ -159,8 +165,10 @@ void start_screen(void) {
     ESP_LOGI(SCREEN_TAG, "Initialize LVGL library");
     lv_init();
 
-    // TODO: rename LCD
     display = lv_display_create(LCD_H_RES, LCD_V_RES);
+    /* LUCA: Adjust orientation to match breadboard prototype. We set the lv display rotation here, and then
+    rotate_esp_lcd() actually updates the esp_lcd display rotation when called from lvgl_flush_cb. */
+    lv_display_set_rotation(display, LV_DISPLAY_ROTATION_90);
 
     // alloc draw buffers used by LVGL
     // it's recommended to choose the size of the draw buffer(s) to be at least 1/10 screen sized
@@ -170,20 +178,22 @@ void start_screen(void) {
     assert(buf1);
     void *buf2 = spi_bus_dma_memory_alloc(LCD_HOST, draw_buffer_sz, 0);
     assert(buf2);
+
     // initialize LVGL draw buffers
     lv_display_set_buffers(display, buf1, buf2, draw_buffer_sz, LV_DISPLAY_RENDER_MODE_PARTIAL);
     // associate the mipi panel handle to the display
     lv_display_set_user_data(display, panel_handle);
     // set color depth
     lv_display_set_color_format(display, LV_COLOR_FORMAT_RGB565);
+
     // set the callback which can copy the rendered image to an area of the display
-    lv_display_set_flush_cb(display, example_lvgl_flush_cb);
+    lv_display_set_flush_cb(display, lvgl_flush_cb);
 
     ESP_LOGI(SCREEN_TAG, "Install LVGL tick timer");
     // TODO: Tick interface for LVGL (using esp_timer to generate 2ms periodic event)
     // IMPORTANT
     const esp_timer_create_args_t lvgl_tick_timer_args = {
-        .callback = &example_increase_lvgl_tick,
+        .callback = &increase_lvgl_tick,
         .name = "lvgl_tick"
     };
     esp_timer_handle_t lvgl_tick_timer = NULL;
@@ -193,16 +203,12 @@ void start_screen(void) {
     ESP_LOGI(SCREEN_TAG, "Register io panel event callback for LVGL flush ready notification");
     // TODO: what is LVGL flush ready?
     const esp_lcd_panel_io_callbacks_t cbs = {
-        .on_color_trans_done = example_notify_lvgl_flush_ready,
+        .on_color_trans_done = notify_lvgl_flush_ready,
     };
     /* Register done callback */
     ESP_ERROR_CHECK(esp_lcd_panel_io_register_event_callbacks(io_handle, &cbs, display));
-
     ESP_LOGI(SCREEN_TAG, "Create LVGL task");
-    if (1) {
-        xTaskCreate(screen_main_task, "Minimap", LVGL_TASK_STACK_SIZE, NULL, LVGL_TASK_PRIORITY, NULL);
-    } else {
-        xTaskCreate(screen_campanile_task, "Campanile", LVGL_TASK_STACK_SIZE, NULL, LVGL_TASK_PRIORITY, NULL);
-    }
 
+    xTaskCreate(screen_main_task, "Minimap", LVGL_TASK_STACK_SIZE, NULL, LVGL_TASK_PRIORITY, NULL);
+    // xTaskCreate(screen_campanile_task, "Campanile", LVGL_TASK_STACK_SIZE, NULL, LVGL_TASK_PRIORITY, NULL);
 }

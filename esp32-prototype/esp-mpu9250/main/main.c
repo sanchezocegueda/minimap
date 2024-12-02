@@ -36,19 +36,27 @@
 #include "calibrate.h"
 #include "common.h"
 
+#include "esp_log.h"
+
 static const char *TAG = "main";
 
 #define I2C_MASTER_NUM I2C_NUM_0 /*!< I2C port number for master dev */
 
-calibration_t cal = {
-    .mag_offset = {.x = -5.449219, .y = -4.875000, .z = 13.476562},
-    .mag_scale = {.x = 1.175105, .y = 0.930902, .z = 0.930418},
-    .gyro_bias_offset = {.x = -0.940880, .y = -0.704113, .z = -1.574584},
-    .accel_offset = {.x = 0.033275, .y = 0.086760, .z = 0.103982},
-    .accel_scale_lo = {.x = 1.013889, .y = 1.026322, .z = 1.050056},
-    .accel_scale_hi = {.x = -0.982644, .y = -0.976446, .z = -0.974061}};
+calibration_t cal_mpu92_65 = {
+    .mag_offset = {.x = 40.242188, .y = -38.000000, .z = -17.740234},
+    .mag_scale = {.x = 1.013800, .y = 1.010465, .z = 0.976592},
+    .gyro_bias_offset = {.x = -2.274468, .y = -1.300148, .z = -2.120367},
+    .accel_offset = {.x = -0.007656, .y = 0.117932, .z = 0.021797},
+    .accel_scale_lo = {.x = 0.993931, .y = 1.012075, .z = 1.023260},
+    .accel_scale_hi = {.x = -0.998414, .y = -0.985158, .z = -0.995281}};
 
-
+calibration_t cal_mpu9250_6500 = {
+    .mag_offset = {.x = 26.035156, .y = 22.546875, .z = -16.992188},
+    .mag_scale = {.x = 0.999656, .y = 1.020460, .z = 0.980675},
+    .gyro_bias_offset = {.x = -0.702319, .y = -0.755465, .z = -1.832088},
+    .accel_offset = {.x = 0.029607, .y = 0.114505, .z = 0.050498},
+    .accel_scale_lo = {.x = 1.012515, .y = 1.022693, .z = 1.037164},
+    .accel_scale_hi = {.x = -0.977422, .y = -0.970941, .z = -0.982524}};
 /**
  * Transformation:
  *  - Rotate around Z axis 180 degrees
@@ -86,7 +94,7 @@ static void transform_mag(vector_t *v)
 void run_imu(void)
 {
 
-  i2c_mpu9250_init(&cal);
+  i2c_mpu9250_init(&cal_mpu9250_6500);
   ahrs_init(SAMPLE_FREQ_Hz, 0.8);
 
   uint64_t i = 0;
@@ -101,6 +109,10 @@ void run_imu(void)
     transform_accel_gyro(&va);
     transform_accel_gyro(&vg);
     transform_mag(&vm);
+
+    if (i % 10 == 0) {
+      ESP_LOGI("RAW DATA", "mag x: %f mag y: %f mag z: %f", vm.x, vm.y, vm.z);
+    }
 
     // Apply the AHRS algorithm
     ahrs_update(DEG2RAD(vg.x), DEG2RAD(vg.y), DEG2RAD(vg.z),

@@ -68,7 +68,7 @@ static float parse_lat_long(esp_gps_t *esp_gps)
 }
 
 /**
- * @brief Converter two continuous numeric character into a uint8_t number
+ * @brief Convert two continuous numeric characters into a uint8_t number
  *
  * @param digit_char numeric character
  * @return uint8_t result of converting
