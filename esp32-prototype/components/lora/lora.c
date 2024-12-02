@@ -75,7 +75,7 @@ static long __frequency;
  * Support for interrupts on DIO0
  */
 #define DIO0_TX_DONE (1 << 6)
-#define DIO0_RX_DONE (0)
+#define DIO0_RX_DONE 0
 #define ESP_INTR_FLAG_DEFAULT 0
 
 /*
@@ -119,9 +119,9 @@ lora_write_reg(int reg, int val)
       .rx_buffer = in  
    };
 
-   gpio_set_level(CONFIG_CS_GPIO, 0);
+   gpio_set_level(CONFIG_LORA_CS_GPIO, 0);
    spi_device_transmit(__spi, &t);
-   gpio_set_level(CONFIG_CS_GPIO, 1);
+   gpio_set_level(CONFIG_LORA_CS_GPIO, 1);
 }
 
 /**
@@ -142,9 +142,9 @@ lora_read_reg(int reg)
       .rx_buffer = in
    };
 
-   gpio_set_level(CONFIG_CS_GPIO, 0);
+   gpio_set_level(CONFIG_LORA_CS_GPIO, 0);
    spi_device_transmit(__spi, &t);
-   gpio_set_level(CONFIG_CS_GPIO, 1);
+   gpio_set_level(CONFIG_LORA_CS_GPIO, 1);
    return in[1];
 }
 
@@ -154,9 +154,9 @@ lora_read_reg(int reg)
 void 
 lora_reset(void)
 {
-   gpio_set_level(CONFIG_RST_GPIO, 0);
+   gpio_set_level(CONFIG_LORA_RST_GPIO, 0);
    vTaskDelay(pdMS_TO_TICKS(1));
-   gpio_set_level(CONFIG_RST_GPIO, 1);
+   gpio_set_level(CONFIG_LORA_RST_GPIO, 1);
    vTaskDelay(pdMS_TO_TICKS(10));
 }
 
@@ -350,18 +350,18 @@ lora_init(void)
    /*
     * Configure CPU hardware to communicate with the radio chip
     */
-   esp_rom_gpio_pad_select_gpio(CONFIG_RST_GPIO);
-   gpio_set_direction(CONFIG_RST_GPIO, GPIO_MODE_OUTPUT);
-   esp_rom_gpio_pad_select_gpio(CONFIG_CS_GPIO);
-   gpio_set_direction(CONFIG_CS_GPIO, GPIO_MODE_OUTPUT);
+   esp_rom_gpio_pad_select_gpio(CONFIG_LORA_RST_GPIO);
+   gpio_set_direction(CONFIG_LORA_RST_GPIO, GPIO_MODE_OUTPUT);
+   esp_rom_gpio_pad_select_gpio(CONFIG_LORA_CS_GPIO);
+   gpio_set_direction(CONFIG_LORA_CS_GPIO, GPIO_MODE_OUTPUT);
 
-   if (CONFIG_IRQ_ENABLED)
-      lora_init_irq(CONFIG_DIO0_GPIO);
+   if (CONFIG_LORA_IRQ_ENABLED)
+      lora_init_irq(CONFIG_LORA_DIO0_GPIO);
 
    spi_bus_config_t bus = {
-      .miso_io_num = CONFIG_MISO_GPIO,
-      .mosi_io_num = CONFIG_MOSI_GPIO,
-      .sclk_io_num = CONFIG_SCK_GPIO,
+      .miso_io_num = CONFIG_LORA_MISO_GPIO,
+      .mosi_io_num = CONFIG_LORA_MOSI_GPIO,
+      .sclk_io_num = CONFIG_LORA_SCK_GPIO,
       .quadwp_io_num = -1,
       .quadhd_io_num = -1,
       .max_transfer_sz = 0

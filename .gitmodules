@@ -7,6 +7,3 @@
 [submodule "esp32-prototype/esp-idf"]
 	path = esp32-prototype/esp-idf
 	url = https://github.com/espressif/esp-idf.git
-[submodule "esp32-prototype/hardware_integration/components/RadioLib"]
-	path = esp32-prototype/hardware_integration/components/RadioLib
-	url = https://github.com/jgromes/RadioLib.git

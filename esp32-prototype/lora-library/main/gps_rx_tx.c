@@ -33,7 +33,7 @@ void task_tx(void *p)
    static uint32_t counter = 0;
    ESP_LOGI("[TX]", "Starting");
    for(;;) {
-      lora_send_packet((uint8_t*)&counter, 4);
+      lora_send_packet_blocking((uint8_t*)&counter, 4);
       ESP_LOGI("[TX]", "counter: %ld", counter);
       counter++;
       vTaskDelay(pdMS_TO_TICKS(2500));
@@ -47,7 +47,7 @@ void task_rx(void *p)
    uint8_t buf[4];
    int x;
    for(;;) {
-      x = lora_receive_packet(buf, sizeof(buf));
+      x = lora_receive_packet_blocking(buf, sizeof(buf));
       ESP_LOGI("[RX]", "%d bytes, counter: %ld", x, (uint32_t) buf[0]);
       vTaskDelay(1);
    }
@@ -98,7 +98,7 @@ static void send_lora_gps(float latitude, float longitude, float altitude) {
    // encryption 
    float buf[3] = {latitude, longitude, altitude};
    
-   lora_send_packet((uint8_t*)buf, 3 * sizeof(float));
+   lora_send_packet_blocking((uint8_t*)buf, 3 * sizeof(float));
    ESP_LOGI("[LORA_TX_GPS]", "Lat: %0.5f, Long: %0.5f, Altitude: %0.5f", latitude, longitude, altitude);
 }
 
@@ -106,7 +106,7 @@ static void send_lora_gps(float latitude, float longitude, float altitude) {
 void receive_lora_gps(void*) {
    float buf[3];
    for (;;) {
-      lora_receive_packet((uint8_t*)buf, 3 * sizeof(float));
+      lora_receive_packet_blocking((uint8_t*)buf, 3 * sizeof(float));
       ESP_LOGI("[LORA_RX_GPS]", "Lat: %0.5f, Long: %0.5f, Altitude: %0.5f", buf[0], buf[1], buf[2]);
       vTaskDelay(1);
    }
