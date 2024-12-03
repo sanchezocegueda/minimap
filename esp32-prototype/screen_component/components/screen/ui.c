@@ -20,6 +20,10 @@
 #define SATHERGATE_LATITUDE  37.8702180  // sather gate latitude (in degrees)
 #define EARTH_RADIUS_M       6371000.0   // earth's radius in meters
 #define SCREEN_RADIUS        500         // corresponds to 500m radius
+/* GPS Data from right outside cory doors. */
+#define CORY_DOORS_LONGITUDE -122.25826 
+#define CORY_DOORS_LATITUDE    37.87535
+#define CORY_DOORS_ALTITUDE   150.10001
 
 /* TODO: Find a way to make this cleaner */
 
@@ -166,7 +170,7 @@ void draw_campanile(gps_t* global_gps)
     float x_ofs;
     float y_ofs;
 
-    gps_to_cartesian(global_gps->lat, global_gps->lon, CAMPANILE_LATITUDE, CAMPANILE_LONGITUDE, &x_ofs, &y_ofs);
+    gps_to_cartesian(global_gps->latitude, global_gps->longitude, CAMPANILE_LATITUDE, CAMPANILE_LONGITUDE, &x_ofs, &y_ofs);
     
     add_bubble(0, 0, "you");
 
@@ -181,7 +185,7 @@ void draw_sather(gps_t* global_gps)
     // offsets of sather gate
     float x_ofs;
     float y_ofs;
-    gps_to_cartesian(global_gps->lat, global_gps->lon, SATHERGATE_LATITUDE, SATHERGATE_LONGITUDE, &x_ofs, &y_ofs);
+    gps_to_cartesian(global_gps->latitude, global_gps->longitude, SATHERGATE_LATITUDE, SATHERGATE_LONGITUDE, &x_ofs, &y_ofs);
 
     add_bubble(0, 0, "you");
 
