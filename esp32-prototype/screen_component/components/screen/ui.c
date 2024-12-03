@@ -14,10 +14,12 @@
 
 /* Defines */
 
-#define CAMPANILE_LONGITUDE  125.25778
-#define CAMPANILE_LATITUDE   37.87194
-#define EARTH_RADIUS_M       6371000.0
-#define SCREEN_RADIUS        100
+#define CAMPANILE_LONGITUDE  -125.25778  // campanile longitude (in degrees)
+#define CAMPANILE_LATITUDE   37.87194    // campanile latitude (in degrees)
+#define SATHERGATE_LONGITUDE -122.25947  // sather gate longitude (in degrees)
+#define SATHERGATE_LATITUDE  37.8702180  // sather gate latitude (in degrees)
+#define EARTH_RADIUS_M       6371000.0   // earth's radius in meters
+#define SCREEN_RADIUS        500         // corresponds to 500m radius
 
 /* TODO: Find a way to make this cleaner */
 
@@ -28,7 +30,7 @@ typedef struct {
 } imu_data_t;
 
 extern imu_data_t global_imu;
-extern gps_t globap_gps;
+extern gps_t global_gps;
 
 typedef struct pos {
     float lat;
@@ -66,6 +68,24 @@ void calculate_distance(float lat1, float lon1, float lat2, float lon2, float* x
 
     return;
 }
+
+
+void gps_to_cartesian(float lat1, float lon1, float lat2, float lon2, float* x, float* y) {
+    /* lat1 and lon1 are the user's latitude and longitude
+       lat2 and lon2 are the other actor's latitude and longitude 
+       result is stored in the pointers x and y */
+
+    float lat1_rad = deg_to_rad(lat1);
+    float lon1_rad = deg_to_rad(lon1);
+    float lat2_rad = deg_to_rad(lat2);
+    float lon2_rad = deg_to_rad(lon2);
+
+    *x = EARTH_RADIUS_M * (cos(lat2_rad) * cos(lon2_rad) - cos(lat1_rad) * cos(lon1_rad));
+    *y = EARTH_RADIUS_M * (cos(lat2_rad) * sin(lon2_rad) - cos(lat1_rad) * sin(lon1_rad));
+
+    return;
+}
+
 
 void add_bubble(float x_ofs, float y_ofs, char * label) {
     
@@ -139,14 +159,34 @@ void display_imu_text(imu_data_t* global_imu)
 
 void draw_campanile(gps_t* global_gps)
 {
-    float x_distance;
-    float y_distance;
+    lv_obj_clean(lv_screen_active());
+    lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x020C0E), LV_PART_MAIN);
 
-    calculate_distance(global_gps->latitude, global_gps->longitude, CAMPANILE_LATITUDE, CAMPANILE_LONGITUDE, &x_distance, &y_distance);
+    // offsets of campanile
+    float x_ofs;
+    float y_ofs;
 
-    // TODO: Scale distance to the size of the screen
-    float x_ofs = 0;
-    float y_ofs = 0;
+    gps_to_cartesian(global_gps->lat, global_gps->lon, CAMPANILE_LATITUDE, CAMPANILE_LONGITUDE, &x_ofs, &y_ofs);
+    
+    add_bubble(0, 0, "you");
+
+    add_bubble(x_ofs, y_ofs, "campanile");
+}
+
+void draw_sather(gps_t* global_gps) 
+{
+    lv_obj_clean(lv_screen_active());
+    lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x020C0E), LV_PART_MAIN);
+
+    // offsets of sather gate
+    float x_ofs;
+    float y_ofs;
+    gps_to_cartesian(global_gps->lat, global_gps->lon, SATHERGATE_LATITUDE, SATHERGATE_LONGITUDE, &x_ofs, &y_ofs);
+
+    add_bubble(0, 0, "you");
+
+    add_bubble(x_ofs, y_ofs, "sather");
+
 }
 
 void draw_heading(imu_data_t* global_imu)
@@ -190,6 +230,6 @@ void update_screen(lv_display_t *disp, gps_t* global_gps, imu_data_t* global_imu
 
 
     /* Draw */
-    draw_heading(global_imu);
-    // draw_campanile(global_gps);
+    // draw_heading(global_imu);
+    draw_campanile(global_gps);
 }
