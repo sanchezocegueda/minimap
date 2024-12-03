@@ -46,3 +46,32 @@ Using `lvgl`, based off [ESP-IDF's spi_master_lcd_touch example](https://github.
 ### Examples
 - [spi_lcd_touch](spi_lcd_touch) is the original example Varun and Alex started their screen work on.
     - Alex and Luca began simplifying this into [screen_imu_gps](screen_imu_gps)
+
+
+## Application Design
+
+## GPS: nmea_parser
+```c
+nmea_parser_handle_t nmea_parser_init(const nmea_parser_config_t *config)
+```
+In this function  we setup the UART driver, which also sets up pattern detection to create a software interrupt when the `\n` character is sent from the GPS.
+
+Specifically, when a pattern is detected, `esp_handle_uart_pattern` is called.
+- This calls `gps_decode` on the pattern, which does the actual parsing from the hardware.
+
+It creates the `esp_gps->event_queue` that is updated when uart detects a pattern or encounters an error and also creates a task running `nmea_parser_task_entry`, this is the task that blocks on the `esp_gps->event_queue` and calls `esp_handle_uart_pattern` to parse a pattern. Once all our statements are parsed
+
+This also creates an event loop for components to register event handlers with.
+
+```c
+esp_err_t nmea_parser_add_handler(nmea_parser_handle_t nmea_hdl, esp_event_handler_t event_handler, void *handler_args, nmea_event_id_t event_id)
+```
+Allows components to register functions when events are posted from the `nmea_parser_task_entry` task.
+
+- `event_id` is the task that should receive (for now, `SCREEN` or `ENCRYPTION`)
+- `nmea_hdl` is the return of `nmea_parser_init`
+- `event_handler` is a function to run, here is an example definition
+```c
+static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
+```
+- `event_data` can be cast to `gps_t *` to process gps data

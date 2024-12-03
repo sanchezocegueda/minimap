@@ -52,4 +52,15 @@
 
 void start_screen(void);
 
+// TODO: Move to ui.h
+#include "nmea_parser.h"
+typedef struct {
+    float heading;
+    float roll;
+    float pitch;
+} imu_data_t;
+
+static imu_data_t global_imu;
+static gps_t global_gps;
+
 #endif

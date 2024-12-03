@@ -531,7 +531,10 @@ static esp_err_t gps_decode(esp_gps_t *esp_gps, size_t len)
                 if (((esp_gps->parsed_statement) & esp_gps->all_statements) == esp_gps->all_statements) {
                     esp_gps->parsed_statement = 0;
                     /* Send signal to notify that GPS information has been updated */
-                    esp_event_post_to(esp_gps->event_loop_hdl, ESP_NMEA_EVENT, GPS_UPDATE,
+                    esp_event_post_to(esp_gps->event_loop_hdl, ESP_NMEA_EVENT, ENCRYPTION_UPDATE,
+                                      &(esp_gps->parent), sizeof(gps_t), 100 / portTICK_PERIOD_MS);
+
+                    esp_event_post_to(esp_gps->event_loop_hdl, ESP_NMEA_EVENT, SCREEN_UPDATE,
                                       &(esp_gps->parent), sizeof(gps_t), 100 / portTICK_PERIOD_MS);
                 }
             } else {
@@ -756,16 +759,17 @@ esp_err_t nmea_parser_deinit(nmea_parser_handle_t nmea_hdl)
  * @param nmea_hdl handle of NMEA parser
  * @param event_handler user defined event handler
  * @param handler_args handler specific arguments
+ * @param event_base event id to register the function with
  * @return esp_err_t
  *  - ESP_OK: Success
  *  - ESP_ERR_NO_MEM: Cannot allocate memory for the handler
  *  - ESP_ERR_INVALIG_ARG: Invalid combination of event base and event id
  *  - Others: Fail
  */
-esp_err_t nmea_parser_add_handler(nmea_parser_handle_t nmea_hdl, esp_event_handler_t event_handler, void *handler_args)
+esp_err_t nmea_parser_add_handler(nmea_parser_handle_t nmea_hdl, esp_event_handler_t event_handler, void *handler_args, nmea_event_id_t event_base)
 {
     esp_gps_t *esp_gps = (esp_gps_t *)nmea_hdl;
-    return esp_event_handler_register_with(esp_gps->event_loop_hdl, ESP_NMEA_EVENT, ESP_EVENT_ANY_ID,
+    return esp_event_handler_register_with(esp_gps->event_loop_hdl, ESP_NMEA_EVENT, event_base,
                                            event_handler, handler_args);
 }
 
@@ -774,13 +778,31 @@ esp_err_t nmea_parser_add_handler(nmea_parser_handle_t nmea_hdl, esp_event_handl
  *
  * @param nmea_hdl handle of NMEA parser
  * @param event_handler user defined event handler
+ * @param event_base event id to unregister the function with
  * @return esp_err_t
  *  - ESP_OK: Success
  *  - ESP_ERR_INVALIG_ARG: Invalid combination of event base and event id
  *  - Others: Fail
  */
-esp_err_t nmea_parser_remove_handler(nmea_parser_handle_t nmea_hdl, esp_event_handler_t event_handler)
+esp_err_t nmea_parser_remove_handler(nmea_parser_handle_t nmea_hdl, esp_event_handler_t event_handler, nmea_event_id_t event_base)
 {
     esp_gps_t *esp_gps = (esp_gps_t *)nmea_hdl;
-    return esp_event_handler_unregister_with(esp_gps->event_loop_hdl, ESP_NMEA_EVENT, ESP_EVENT_ANY_ID, event_handler);
+    return esp_event_handler_unregister_with(esp_gps->event_loop_hdl, ESP_NMEA_EVENT, event_base, event_handler);
+}
+
+
+/**
+ * @brief Logs gps data to stdout
+ * 
+ * @param gps pointer to gps struct
+ */
+void gps_debug(gps_t* gps) {
+    ESP_LOGI("[GPS_DEBUG]", "%d/%d/%d %d:%d:%d => \r\n"
+                "\t\t\t\t\t\tlatitude   = %.05f°N\r\n"
+                "\t\t\t\t\t\tlongitude = %.05f°E\r\n"
+                "\t\t\t\t\t\taltitude   = %.02fm\r\n"
+                "\t\t\t\t\t\tspeed      = %fm/s",
+                gps->date.year + YEAR_BASE, gps->date.month, gps->date.day,
+                gps->tim.hour + TIME_ZONE, gps->tim.minute, gps->tim.second,
+                gps->latitude, gps->longitude, gps->altitude, gps->speed);
 }

@@ -17,10 +17,6 @@
 // #include "esp_system.h"
 #include "mbedtls/aes.h"
 
-static const char *GPS_TAG = "[GPS]";
-
-#define TIME_ZONE (-8)   // PST
-#define YEAR_BASE (2000) //date in GPS starts from 2000
 
 static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
 static void send_lora_gps(float latitude, float longitude, float altitude);
@@ -53,18 +49,13 @@ void task_rx(void *p)
    }
 }
 
-/* TODO: Move to NMEA_PARSER print information parsed from GPS statements */
-void gps_debug(gps_t* gps) {
-    ESP_LOGI(GPS_TAG, "%d/%d/%d %d:%d:%d => \r\n"
-                "\t\t\t\t\t\tlatitude   = %.05f°N\r\n"
-                "\t\t\t\t\t\tlongitude = %.05f°E\r\n"
-                "\t\t\t\t\t\taltitude   = %.02fm\r\n"
-                "\t\t\t\t\t\tspeed      = %fm/s",
-                gps->date.year + YEAR_BASE, gps->date.month, gps->date.day,
-                gps->tim.hour + TIME_ZONE, gps->tim.minute, gps->tim.second,
-                gps->latitude, gps->longitude, gps->altitude, gps->speed);
-}
+/* Task to send a counter and listen for a counter periodically*/
+void task_both(void *p) {
+   
+   for(;;) {
 
+   }
+}
 
 /**
  * @brief GPS Event Handler, logs the GPS data to serial and transmits latitude, longitude, and altitude over lora.
@@ -76,21 +67,9 @@ void gps_debug(gps_t* gps) {
  */
 static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
-   gps_t *gps = NULL;
-   switch (event_id)
-   {
-   case GPS_UPDATE:
-      gps = (gps_t *)event_data;
-      gps_debug(gps);
-      send_lora_gps(gps->latitude, gps->longitude, gps->altitude);
-      break;
-   case GPS_UNKNOWN:
-      /* print unknown statements */
-      ESP_LOGW(GPS_TAG, "Unknown statement:%s", (char *)event_data);
-      break;
-   default:
-      break;
-   }
+   gps_t *gps = (gps_t *)event_data;
+   gps_debug(gps);
+   send_lora_gps(gps->latitude, gps->longitude, gps->altitude);
 }
 
 /* Format latitude, longitude, altitude and send via lora */
@@ -134,7 +113,7 @@ void app_main()
    // Setup GPS event handler to send data using `send_lora_gps`
 //   nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
 //   nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
-//   nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL);
+//   nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL, SCREEN_UPDATE);
 
    // xTaskCreate(&task_tx, "task_tx", 2048, NULL, 5, NULL);
    xTaskCreate(&task_rx, "task_rx", 2048, NULL, 5, NULL);

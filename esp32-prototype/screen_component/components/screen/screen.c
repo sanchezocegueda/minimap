@@ -6,17 +6,6 @@ static const char *SCREEN_TAG = "[SCREEN]";
 static _lock_t lvgl_api_lock;
 static lv_disp_t * display;
 
-// TODO: Move to ui.h
-#include "nmea_parser.h"
-typedef struct {
-    float heading;
-    float roll;
-    float pitch;
-} imu_data_t;
-
-static imu_data_t global_imu;
-static gps_t global_gps;
-
 
 /* This is what actually draws stuff on the screen */
 extern void update_screen(lv_disp_t *disp, gps_t* global_gps, imu_data_t* global_imu);

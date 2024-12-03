@@ -415,19 +415,6 @@ static void imu_task(void *arg)
 
 // END IMU, BEGIN GPS 
 
-/* NMEA Parser example, that decode data stream from GPS receiver
-
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
-
-static const char *GPS_TAG = "[GPS]";
-
-#define TIME_ZONE (-8)   // PST
-#define YEAR_BASE (2000) //date in GPS starts from 2000
 
 /**
  * @brief GPS Event Handler
@@ -439,46 +426,22 @@ static const char *GPS_TAG = "[GPS]";
  */
 static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
-    gps_t *gps = NULL;
-    switch (event_id) {
-    case GPS_UPDATE:
-        gps = (gps_t *)event_data;
-        global_gps = *((gps_t *)event_data);
-        global_gps.latitude += 1.1;
-        
-        /* print information parsed from GPS statements */
-        // gps_debug(&global_gps);
-        break;
-    case GPS_UNKNOWN:
-        /* print unknown statements */
-        ESP_LOGW(GPS_TAG, "Unknown statement:%s", (char *)event_data);
-        break;
-    default:
-        break;
-    }
-}
-
-/* TODO: Move to NMEA_PARSER print information parsed from GPS statements */
-void gps_debug(gps_t* gps) {
-    ESP_LOGI(GPS_TAG, "%d/%d/%d %d:%d:%d => \r\n"
-                "\t\t\t\t\t\tlatitude   = %.05f°N\r\n"
-                "\t\t\t\t\t\tlongitude = %.05f°E\r\n"
-                "\t\t\t\t\t\taltitude   = %.02fm\r\n"
-                "\t\t\t\t\t\tspeed      = %fm/s",
-                gps->date.year + YEAR_BASE, gps->date.month, gps->date.day,
-                gps->tim.hour + TIME_ZONE, gps->tim.minute, gps->tim.second,
-                gps->latitude, gps->longitude, gps->altitude, gps->speed);
+    global_gps = *((gps_t *)event_data);
+    global_gps.latitude += 1.1;
+    
+    /* print information parsed from GPS statements */
+    // gps_debug(&global_gps);
 }
 
 
 void app_main(void)
 {
     // /* NMEA parser configuration */
-    // nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
+    nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
     // /* init NMEA parser library */
-    // nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
+    nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
     // /* register event handler for NMEA parser library */
-    // nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL);
+    nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL, SCREEN_UPDATE);
 
     xTaskCreate(imu_task, "imu_task", 4096, NULL, 10, NULL);
 

@@ -17,6 +17,8 @@ extern "C" {
 
 #define GPS_MAX_SATELLITES_IN_USE (12)
 #define GPS_MAX_SATELLITES_IN_VIEW (16)
+#define TIME_ZONE (-8)   // PST
+#define YEAR_BASE (2000) //date in GPS starts from 2000
 
 /**
  * @brief Declare of NMEA Parser Event base
@@ -159,7 +161,8 @@ typedef void *nmea_parser_handle_t;
  *
  */
 typedef enum {
-    GPS_UPDATE, /*!< GPS information has been updated */
+    SCREEN_UPDATE, /*!< GPS information has been updated */
+    ENCRYPTION_UPDATE,
     GPS_UNKNOWN /*!< Unknown statements detected */
 } nmea_event_id_t;
 
@@ -191,7 +194,7 @@ esp_err_t nmea_parser_deinit(nmea_parser_handle_t nmea_hdl);
  *  - ESP_ERR_INVALIG_ARG: Invalid combination of event base and event id
  *  - Others: Fail
  */
-esp_err_t nmea_parser_add_handler(nmea_parser_handle_t nmea_hdl, esp_event_handler_t event_handler, void *handler_args);
+esp_err_t nmea_parser_add_handler(nmea_parser_handle_t nmea_hdl, esp_event_handler_t event_handler, void *handler_args, nmea_event_id_t event_base);
 
 /**
  * @brief Remove user defined handler for NMEA parser
@@ -203,7 +206,14 @@ esp_err_t nmea_parser_add_handler(nmea_parser_handle_t nmea_hdl, esp_event_handl
  *  - ESP_ERR_INVALIG_ARG: Invalid combination of event base and event id
  *  - Others: Fail
  */
-esp_err_t nmea_parser_remove_handler(nmea_parser_handle_t nmea_hdl, esp_event_handler_t event_handler);
+esp_err_t nmea_parser_remove_handler(nmea_parser_handle_t nmea_hdl, esp_event_handler_t event_handler, nmea_event_id_t event_base);
+
+/**
+ * @brief Logs gps data to stdout
+ * 
+ * @param gps pointer to gps struct
+ */
+void gps_debug(gps_t* gps);
 
 #ifdef __cplusplus
 }
