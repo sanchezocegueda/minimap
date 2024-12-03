@@ -26,8 +26,10 @@
 ## GPS
 - `TX`: `18`, Serial transmit
 
-## UI
-2 buttons eventually connected to GPIO
+## Buttons
+These must be configured as pull-up resistors in software, active low. We directly wire each GPIO to one side of the button switch, and the other is grounded.
+- `button 1`: `32`, Pairing toggle
+- `button 2`: `21`, Host/join toggle
 
 ## Microcontroller
 Pins `13` and `0` must be set up as an SPI interface
