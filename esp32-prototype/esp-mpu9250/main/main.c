@@ -70,9 +70,9 @@ static void transform_accel_gyro(vector_t *v)
   float y = v->y;
   float z = v->z;
 
-  v->x = -x;
-  v->y = -z;
-  v->z = -y;
+  v->x = y;
+  v->y = x;
+  v->z = -z;
 }
 
 /**
@@ -86,9 +86,9 @@ static void transform_mag(vector_t *v)
   float y = v->y;
   float z = v->z;
 
-  v->x = -y;
-  v->y = z;
-  v->z = -x;
+  v->x = x;
+  v->y = y;
+  v->z = z;
 }
 
 void run_imu(void)

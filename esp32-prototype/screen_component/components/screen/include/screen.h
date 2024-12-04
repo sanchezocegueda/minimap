@@ -60,7 +60,7 @@ typedef struct {
     float pitch;
 } imu_data_t;
 
-static imu_data_t global_imu;
-static gps_t global_gps;
+extern imu_data_t global_imu;
+extern gps_t global_gps;
 
 #endif

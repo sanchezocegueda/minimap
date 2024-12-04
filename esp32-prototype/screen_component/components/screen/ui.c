@@ -9,7 +9,7 @@
 // GPS additions
 // TODO: Move to ui.h
 #include "nmea_parser.h"
-
+#include "screen.h"
 
 
 /* Defines */
@@ -26,15 +26,6 @@
 #define CORY_DOORS_ALTITUDE   150.10001
 
 /* TODO: Find a way to make this cleaner */
-
-typedef struct {
-    float heading;
-    float roll;
-    float pitch;
-} imu_data_t;
-
-extern imu_data_t global_imu;
-extern gps_t global_gps;
 
 typedef struct pos {
     float lat;
@@ -227,14 +218,14 @@ void update_screen(lv_display_t *disp, gps_t* global_gps, imu_data_t* global_imu
     // display_gps_text(global_gps);
 
     /* Write IMU data */
-    // display_imu_text(global_imu);
+    display_imu_text(global_imu);
     
     /* Get LoRa data */
     // TODO
 
 
     /* Draw */
-    draw_heading(global_imu);
+    // draw_heading(global_imu);
     // gps_debug(global_gps);
     // draw_campanile(global_gps);
 }
