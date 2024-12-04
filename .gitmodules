@@ -1,9 +1,3 @@
-[submodule "pico-prototype/pico-sdk"]
-	path = pico-prototype/pico-sdk
-	url = https://github.com/raspberrypi/pico-sdk.git
-[submodule "pico-prototype/picotool"]
-	path = pico-prototype/picotool
-	url = https://github.com/raspberrypi/picotool
 [submodule "esp32-prototype/esp-idf"]
 	path = esp32-prototype/esp-idf
 	url = https://github.com/espressif/esp-idf.git

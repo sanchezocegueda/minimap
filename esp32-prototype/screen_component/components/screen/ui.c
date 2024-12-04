@@ -234,6 +234,7 @@ void update_screen(lv_display_t *disp, gps_t* global_gps, imu_data_t* global_imu
 
 
     /* Draw */
-    // draw_heading(global_imu);
-    draw_campanile(global_gps);
+    draw_heading(global_imu);
+    // gps_debug(global_gps);
+    // draw_campanile(global_gps);
 }

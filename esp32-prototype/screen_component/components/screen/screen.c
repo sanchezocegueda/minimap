@@ -94,7 +94,7 @@ static void screen_campanile_task(void *arg)
     while (1) {
         // Lock the mutex due to the LVGL APIs are not thread-safe
         _lock_acquire(&lvgl_api_lock);
-        // update_screen(display, &global_gps, &global_imu);
+        update_screen(display, &global_gps, &global_imu);
         time_till_next_ms = lv_timer_handler();
         _lock_release(&lvgl_api_lock);
         // in case of triggering a task watch dog time out
