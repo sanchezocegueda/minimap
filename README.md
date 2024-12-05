@@ -3,6 +3,14 @@ All artifacts can be found in [artifacts](artifacts)
 
 All deliverables can be found in [deliverables](deliverables)
 
+# Prototypes
+
+### Current prototype without buttons
+![](artifacts/breadboard_gps.jpg)
+
+### Current prototype without buttons and gps (for a better visual)
+![](artifacts/breadboard.jpg)
+
 # Getting started with development on a fresh machine
 
 ## Setup repo
