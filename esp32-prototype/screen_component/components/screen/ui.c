@@ -11,6 +11,7 @@
 #include "nmea_parser.h"
 #include "screen.h"
 
+#include
 
 /* Defines */
 
@@ -245,6 +246,7 @@ void varun_ui(lv_display_t *disp)
 /* Update information for the screen and display it. Gets called every 2ms. */
 void update_screen(lv_display_t *disp, gps_t* global_gps, imu_data_t* global_imu)
 {
+    ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));
     /* Reset the screen */
     lv_obj_clean(lv_screen_active());
     lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x020C0E), LV_PART_MAIN);

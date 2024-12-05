@@ -91,7 +91,7 @@ void run_imu(void)
 {
 
   i2c_mpu9250_init(&cal_mpu92_65);
-  ahrs_init(SAMPLE_FREQ_Hz, 0.8);
+  ahrs_init(SAMPLE_FREQ_Hz, 0.8);   
 
   uint64_t i = 0;
   while (true)

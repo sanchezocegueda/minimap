@@ -51,6 +51,7 @@ Using `lvgl`, based off [ESP-IDF's spi_master_lcd_touch example](https://github.
 ## Application Design
 
 ## GPS: nmea_parser
+**TODO: Update to Nick's idea of writing to a thread-safe data structure**
 ```c
 nmea_parser_handle_t nmea_parser_init(const nmea_parser_config_t *config)
 ```
@@ -75,3 +76,25 @@ Allows components to register functions when events are posted from the `nmea_pa
 static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 ```
 - `event_data` can be cast to `gps_t *` to process gps data
+
+## Lora Component
+- attached to global device state: `{hosting, joining, normal}`
+- will read directly from GPS struct to start an encryption
+
+
+### Hosting
+
+### Joining
+
+### Normal
+
+## IMU Component
+- constantly updating a global_imu struct, then will perform a calculation to determine if the screen should be turned off
+
+## Screen Component
+- attached to global device state: `{hosting, joining, normal}`
+
+To update the screen given button inputs
+- block on a button_event queue and have each button send the proper enum: `LEFT` or `RIGHT`
+
+The two buttons have different interrupt handlers which just send different enums to the `button_event` queue

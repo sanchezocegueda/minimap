@@ -1,4 +1,9 @@
-# Getting started with prototype on a fresh machine
+# Information
+All artifacts can be found in [artifacts](artifacts)
+
+All deliverables can be found in [deliverables](deliverables)
+
+# Getting started with development on a fresh machine
 
 ## Setup repo
 ```bash

@@ -30,12 +30,3 @@
 These must be configured as pull-up resistors in software, active low. We directly wire each GPIO to one side of the button switch, and the other is grounded.
 - `button 1`: `32`, Pairing toggle
 - `button 2`: `21`, Host/join toggle
-
-## Microcontroller
-Pins `13` and `0` must be set up as an SPI interface
-
-Pin `18` must be set up as an I2C interface
-
-Pins `19`, `27`, and `16` must be setup as clocks
-
-Pins `5` and `26` must be setup for interrupts

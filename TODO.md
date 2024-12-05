@@ -6,16 +6,20 @@
 - [ ] **API: GPS -- given latitude and longitude from GPS, track around a fixed point**
 - [ ] **API: -- given an angle, display where North is**
 - [ ] Cosmetic: add radar lines
+- [ ] Develop menu ui
+- [ ] Integrate button interrupts to control menus
 
 
 # IMU
 - [x] Compile a driver and/or library
     - Decide on a library from: [here](https://github.com/hideakitai/MPU9250), or [here](https://git.sr.ht/~truita/esp-mpu9250/tree) (or if you find a better one)
 - [x] Basic IMU data display on screen
-- [ ] **Calculate heading**
-- [ ] **Experiment with [the Fusion library](https://github.com/xioTechnologies/Fusion/tree/main)**
-- [ ] **Test pitch, roll, heading, and calibration more**
-- [ ] **Decide if/how to use interrupts to wakeup the task**
+- [x] **Calculate heading**
+- [x] **Experiment with [the Fusion library](https://github.com/xioTechnologies/Fusion/tree/main)**
+    - not needed
+- [x] **Test pitch, roll, heading, and calibration more**
+- [x] **Decide if/how to use interrupts to wakeup the task**
+- [ ] implement writing to a thread-safe global struct
 
 
 # LORA
@@ -23,14 +27,21 @@
 - [x] counter example
 - [x] interrupt counter and GPS example
 - [ ] **use `mbedtls/aes.h` to encrypt a 16 byte packet containing 3 floats. Probably with AES-CTR and IV?**
+- [ ] single program rx/tx
+- [ ] clock synch with ptp algorithm
+- [ ] button ptp and send symmetric key
 
 
 # GPS
 - [x] port a library to esp-idf and create a pin header for the GPS module we currently have
 - [x] Try the esp-idf NMEA0183_parser
-- [ ] Decide how to integrate the gps event loop into a final program
+- [x] Decide how to integrate the gps event loop into a final program
+    - [ ] implement writing to a thread-safe global struct
 
 
 # OTHER
-- [ ] Iterate on the prototype once more: have 2 breadboards with the exact same wiring
-- [ ] Cleanup components so there is only 1 copy of the source files for each example.
+- [x] Iterate on the prototype once more: have 2 breadboards with the exact same wiring
+    - [ ] Add buttons and configure idf for interrupts and gpio
+- [x] Cleanup components so there is only 1 copy of the source files for each example.
+- [ ] Cleanup repo even more
+- [ ] Demo to clock synchronize and transfer data on a button press
