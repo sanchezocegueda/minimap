@@ -3,6 +3,9 @@ All artifacts can be found in [artifacts](artifacts)
 
 All deliverables can be found in [deliverables](deliverables)
 
+All code and example projects can be found in [esp32-prototype](esp32-prototype)
+- See [esp32-prototype/DETAILS.md](esp32-prototype/DETAILS.md)
+
 # Prototypes
 
 ### Current prototype without buttons
@@ -20,7 +23,6 @@ git clone git@github.com:sanchezocegueda/minimap.git
 # http
 git clone https://github.com/sanchezocegueda/minimap.git
 cd minimap
-git checkout prototype
 git submodule update --init --recursive
 ```
 
