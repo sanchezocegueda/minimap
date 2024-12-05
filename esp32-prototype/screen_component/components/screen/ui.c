@@ -32,9 +32,39 @@ typedef struct pos {
     float lon;
 } pos_t;
 
-float deg_to_rad(float deg) {
+float deg_to_rad(float deg) 
+{
     return deg * (M_PI / 180.0f);
 }
+
+float heading_to_rad(float heading_angle) 
+{
+    // This function takes the heading angle and converts it to a regular angle in radiants
+    // Heading angle is confusing because 
+    // (a) it is in degrees,
+    // (b) it increases clockwise, and
+    // (c) 0 is at the top
+
+
+    float angle_deg = fmod(-heading_angle + 90.0, 360.0);
+
+    float angle_rad = deg_to_rad(angle_deg);
+
+    return angle_rad;
+}
+
+void adjust_offsets(float* x_ofs, float* y_ofs, float heading_angle)
+{
+    float r = sqrt((*x_ofs) * (*x_ofs) + (*y_ofs) * (*y_ofs));
+    float angle1 = atan2(*y_ofs, *x_ofs);
+    float angle2 = heading_to_rad(heading_angle);
+    float theta = angle1 + angle2;
+
+    *x_ofs = r * cos(theta);
+    *y_ofs = r * sin(theta);
+}
+
+
 
 void calculate_distance(float lat1, float lon1, float lat2, float lon2, float* x, float* y) {
 
@@ -152,7 +182,7 @@ void display_imu_text(imu_data_t* global_imu)
     add_bubble(0, 2, label);
 }
 
-void draw_campanile(gps_t* global_gps)
+void draw_campanile(gps_t* global_gps, imu_data_t* global_imu)
 {
     lv_obj_clean(lv_screen_active());
     lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x020C0E), LV_PART_MAIN);
@@ -163,12 +193,14 @@ void draw_campanile(gps_t* global_gps)
 
     gps_to_cartesian(global_gps->latitude, global_gps->longitude, CAMPANILE_LATITUDE, CAMPANILE_LONGITUDE, &x_ofs, &y_ofs);
     
+    adjust_offsets(&x_ofs, &y_ofs, global_imu->heading);    
+
     add_bubble(0, 0, "you");
 
     add_bubble(x_ofs, y_ofs, "campanile");
 }
 
-void draw_sather(gps_t* global_gps) 
+void draw_sather(gps_t* global_gps, imu_data_t* global_imu) 
 {
     lv_obj_clean(lv_screen_active());
     lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x020C0E), LV_PART_MAIN);
@@ -179,6 +211,9 @@ void draw_sather(gps_t* global_gps)
     gps_to_cartesian(global_gps->latitude, global_gps->longitude, SATHERGATE_LATITUDE, SATHERGATE_LONGITUDE, &x_ofs, &y_ofs);
 
     add_bubble(0, 0, "you");
+
+    adjust_offsets(&x_ofs, &y_ofs, global_imu->heading);    
+
 
     add_bubble(x_ofs, y_ofs, "sather");
 
@@ -218,7 +253,7 @@ void update_screen(lv_display_t *disp, gps_t* global_gps, imu_data_t* global_imu
     // display_gps_text(global_gps);
 
     /* Write IMU data */
-    display_imu_text(global_imu);
+    // display_imu_text(global_imu);
     
     /* Get LoRa data */
     // TODO
@@ -227,5 +262,6 @@ void update_screen(lv_display_t *disp, gps_t* global_gps, imu_data_t* global_imu
     /* Draw */
     // draw_heading(global_imu);
     // gps_debug(global_gps);
-    // draw_campanile(global_gps);
+    draw_campanile(global_gps);
 }
+
