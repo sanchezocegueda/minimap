@@ -6,10 +6,10 @@ All deliverables can be found in [deliverables](deliverables)
 # Prototypes
 
 ### Current prototype without buttons
-![](artifacts/breadboard_gps.jpg)
+<img src="artifacts/breadboard_gps.jpg" height=800>
 
 ### Current prototype without buttons and gps (for a better visual)
-![](artifacts/breadboard.jpg)
+<img src="artifacts/breadboard.jpg" height=800>
 
 # Getting started with development on a fresh machine
 
