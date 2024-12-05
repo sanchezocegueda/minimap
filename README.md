@@ -1,4 +1,6 @@
 # Information
+See our [initial project proposal](deliverables/Project_Proposal.pdf) for a high level overview of what we're building.
+
 All artifacts can be found in [artifacts](artifacts)
 
 All deliverables can be found in [deliverables](deliverables)
