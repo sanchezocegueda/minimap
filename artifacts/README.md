@@ -6,4 +6,9 @@
 <img src="breadboard_design.png">
 
 ### outdated visual of how we interface with each device
-<img src="esp32_pinout.jpg" height="400">
+<img src="esp32_pinout.jpg" height=400>
+
+### pcb we built to hopefully have more than 2 devices
+- This is a backburner task, but if time permits we hope to get atleast one more device assembled using this pcb.
+
+<img src="pcb.jpg" height=800>
