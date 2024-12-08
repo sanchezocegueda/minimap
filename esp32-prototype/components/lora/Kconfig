@@ -7,13 +7,6 @@ config LORA_CS_GPIO
     help
 	Pin Number where the CS pin of the LoRa module is connected to.
 
-config LORA_RST_GPIO
-    int "RST GPIO"
-    range 0 35
-    default 35
-    help
-	Pin Number where the RST pin of the LoRa module is connected to.
-
 config LORA_MISO_GPIO
     int "MISO GPIO"
     range 0 35

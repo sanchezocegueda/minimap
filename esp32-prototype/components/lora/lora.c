@@ -148,17 +148,6 @@ lora_read_reg(int reg)
    return in[1];
 }
 
-/**
- * Perform physical reset on the Lora chip
- */
-void 
-lora_reset(void)
-{
-   gpio_set_level(CONFIG_LORA_RST_GPIO, 0);
-   vTaskDelay(pdMS_TO_TICKS(1));
-   gpio_set_level(CONFIG_LORA_RST_GPIO, 1);
-   vTaskDelay(pdMS_TO_TICKS(10));
-}
 
 /**
  * Configure explicit header mode.
@@ -350,8 +339,6 @@ lora_init(void)
    /*
     * Configure CPU hardware to communicate with the radio chip
     */
-   esp_rom_gpio_pad_select_gpio(CONFIG_LORA_RST_GPIO);
-   gpio_set_direction(CONFIG_LORA_RST_GPIO, GPIO_MODE_OUTPUT);
    esp_rom_gpio_pad_select_gpio(CONFIG_LORA_CS_GPIO);
    gpio_set_direction(CONFIG_LORA_CS_GPIO, GPIO_MODE_OUTPUT);
 
@@ -381,10 +368,6 @@ lora_init(void)
    ret = spi_bus_add_device(VSPI_HOST, &dev, &__spi);
    assert(ret == ESP_OK);
 
-   /*
-    * Perform hardware reset.
-    */
-   lora_reset();
 
    /*
     * Check version.
