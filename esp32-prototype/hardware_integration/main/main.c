@@ -245,11 +245,11 @@ void app_main()
   xTaskCreate(imu_task, "imu_task", 4096, NULL, 10, NULL);
 
   /* Setup buttons */
-  button_handle_t left_btn = init_btn(LEFT_BUTTON_PIN);
-  button_handle_t right_btn = init_btn(RIGHT_BUTTON_PIN);
+  button_handle_t left_btn, right_btn;
+  init_buttons(&left_btn, &right_btn, &button_event_queue);
 
-  iot_button_register_cb(left_btn, BUTTON_PRESS_DOWN, button_single_click_cb, NULL);
-  iot_button_register_cb(right_btn, BUTTON_PRESS_DOWN, button_single_click_cb, NULL);
+  iot_button_register_cb(left_btn, BUTTON_PRESS_DOWN, left_cb, NULL);
+  iot_button_register_cb(right_btn, BUTTON_PRESS_DOWN, right_cb, NULL);
 
   /* Setup Lora Radio */
   lora_init();

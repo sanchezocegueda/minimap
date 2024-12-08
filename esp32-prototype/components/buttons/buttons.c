@@ -1,18 +1,38 @@
 #include "buttons.h"
 
-void button_single_click_cb(void* arg, void *usr_data)
+typedef enum {
+    LEFT_PRESS,
+    RIGHT_PRESS,
+} minimap_button_event_t;
+
+
+/* You could also pass data into USR_DATA with iot_button_register_cb */
+void left_cb(void* arg, void *usr_data)
 {
-    uint32_t gpio_num = LEFT_BUTTON_PIN;
-    xQueueSendToFront(button_event_queue, &gpio_num, portMAX_DELAY);
+    minimap_button_event_t val = LEFT_PRESS;
+    xQueueSendToFront(button_event_queue, &val, portMAX_DELAY);
 }
 
-/* Task to handle button interrupts. */
+
+void right_cb(void* arg, void *usr_data)
+{
+    minimap_button_event_t val = RIGHT_PRESS;
+    xQueueSendToFront(button_event_queue, &val, portMAX_DELAY);
+}
+
+
+/* Task to handle button interrupts. This should be modified each time the button callbacks change.
+(or deleted and a new listener spawned...) */
 void button_listener(void* arg)
 {
-    uint32_t io_num;
+    uint32_t event;
     for (;;) {
-        if (xQueueReceive(button_event_queue, &io_num, portMAX_DELAY)) {
-            ESP_LOGI("[BUTTON]", "Interrupt received!");
+        if (xQueueReceive(button_event_queue, &event, portMAX_DELAY)) {
+            if (event == LEFT_PRESS) {
+                ESP_LOGI("[BUTTON]", "Left button pressed!");
+            } else if (event == RIGHT_PRESS) {
+                ESP_LOGI("[BUTTON]", "Right button pressed!");
+            }
         }
     }
 }
@@ -33,4 +53,17 @@ button_handle_t init_btn(gpio_num_t gpio_pin) {
         ESP_LOGE("ERROR", "Button failed to create");
     }
     return btn;
+}
+
+/* TODO: Not quite sure where we want the queue. For now it's defined in main.c
+and that address is passed to this function. */
+
+/* Setup GPIO for the buttons and creates a queue and a listener task for button events.
+In order to use the buttons, register callback functions with iot_button_register_cb. */
+void init_buttons(button_handle_t *left, button_handle_t *right, QueueHandle_t *button_event_queue)
+{
+    *left = init_btn(LEFT_BUTTON_PIN);
+    *right = init_btn(RIGHT_BUTTON_PIN);
+    *button_event_queue = xQueueCreate(16, sizeof(minimap_button_event_t));
+    xTaskCreate(button_listener, "button listener", 2048, NULL, 10, NULL);
 }

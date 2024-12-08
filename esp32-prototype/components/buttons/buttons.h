@@ -12,10 +12,14 @@
 
 extern QueueHandle_t button_event_queue;
 
-void button_single_click_cb(void* arg, void *usr_data);
+void left_cb(void* arg, void *usr_data);
+
+void right_cb(void* arg, void *usr_data);
 
 /* Task to handle button interrupts. */
 void button_listener(void* arg);
 
 /* Create an IDF, GPIO button attached to GPIO_PIN. */
 button_handle_t init_btn(gpio_num_t gpio_pin);
+
+void init_buttons(button_handle_t *left, button_handle_t *right, QueueHandle_t *button_event_queue);
