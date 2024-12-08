@@ -1,10 +1,3 @@
-#include <nmea_parser.h>
-#include "lora.h"
-
-// SCREEN
-// #include <screen.h>
-
-// IMU
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -20,27 +13,47 @@
 
 #include "driver/i2c.h"
 
-#include <ahrs.h>
-#include <mpu9250.h>
-#include <calibrate.h>
-#include <common.h>
-#define I2C_MASTER_NUM I2C_NUM_0 /*!< I2C port number for master dev */
-// IMU
+#include "nmea_parser.h"
+#include "screen.h"
 
-// Crypto
-#include "esp_system.h"
-#include "mbedtls/aes.h" // need to include esp_system.h too??
-// Crypto
+/* Code for our 2 physical buttons */
+#include "buttons.h"
 
-static const char *IMU_TAG = "[IMU]";
+/* IMU */
+#include "ahrs.h"
+#include "mpu9250.h"
+#include "calibrate.h"
+#include "common.h"
 
-calibration_t cal = {
-    .mag_offset = {.x = 8.476562, .y = 11.578125, .z = 9.960938},
-    .mag_scale = {.x = 0.970968, .y = 1.035335, .z = 0.995789},
-    .gyro_bias_offset = {.x = -0.840523, .y = -0.754751, .z = -1.463743},
-    .accel_offset = {.x = 0.019448, .y = 0.045232, .z = 0.084993},
-    .accel_scale_lo = {.x = 1.021489, .y = 1.022823, .z = 1.049751},
-    .accel_scale_hi = {.x = -0.980145, .y = -0.977748, .z = -0.968229}};
+#include "lora.h"
+#include "mbedtls/aes.h"
+
+/* TODO: Cleanup */
+void send_lora_gps();
+
+#define I2C_MASTER_NUM I2C_NUM_0 /* I2C port number for master dev */
+
+/* Global variable init */
+imu_data_t global_imu;
+gps_t global_gps;
+QueueHandle_t button_event_queue;
+
+/* IMU Calibration, set accordingly in run_imu */
+calibration_t cal_mpu92_65 = {
+    .mag_offset = {.x = 40.242188, .y = -38.000000, .z = -17.740234},
+    .mag_scale = {.x = 1.013800, .y = 1.010465, .z = 0.976592},
+    .gyro_bias_offset = {.x = -2.274468, .y = -1.300148, .z = -2.120367},
+    .accel_offset = {.x = -0.007656, .y = 0.117932, .z = 0.021797},
+    .accel_scale_lo = {.x = 0.993931, .y = 1.012075, .z = 1.023260},
+    .accel_scale_hi = {.x = -0.998414, .y = -0.985158, .z = -0.995281}};
+
+calibration_t cal_mpu9250_6500 = {
+    .mag_offset = {.x = 26.035156, .y = 22.546875, .z = -16.992188},
+    .mag_scale = {.x = 0.999656, .y = 1.020460, .z = 0.980675},
+    .gyro_bias_offset = {.x = -0.702319, .y = -0.755465, .z = -1.832088},
+    .accel_offset = {.x = 0.029607, .y = 0.114505, .z = 0.050498},
+    .accel_scale_lo = {.x = 1.012515, .y = 1.022693, .z = 1.037164},
+    .accel_scale_hi = {.x = -0.977422, .y = -0.970941, .z = -0.982524}};
 
 
 /**
@@ -56,11 +69,13 @@ static void transform_accel_gyro(vector_t *v)
   float y = v->y;
   float z = v->z;
 
-  v->x = -x;
-  v->y = -z;
-  v->z = -y;
+  v->x = y;
+  v->y = x;
+  v->z = -z;
 }
 
+
+// TODO: technically not needed if we aren't changing the mag axes
 /**
  * Transformation: to get magnetometer aligned
  * @param  {object} s {x,y,z} sensor
@@ -72,14 +87,15 @@ static void transform_mag(vector_t *v)
   float y = v->y;
   float z = v->z;
 
-  v->x = -y;
-  v->y = z;
-  v->z = -x;
+  v->x = x;
+  v->y = y;
+  v->z = z;
 }
+
 
 void run_imu(void)
 {
-  i2c_mpu9250_init(&cal);
+  i2c_mpu9250_init(&cal_mpu9250_6500);
   ahrs_init(SAMPLE_FREQ_Hz, 0.8);
 
   uint64_t i = 0;
@@ -87,33 +103,37 @@ void run_imu(void)
   {
     vector_t va, vg, vm;
 
-    // Get the Accelerometer, Gyroscope and Magnetometer values.
+    /* Get the raw Accelerometer, Gyroscope and Magnetometer values. */
     ESP_ERROR_CHECK(get_accel_gyro_mag(&va, &vg, &vm));
 
-    // Transform these values to the orientation of our device.
+    /* Transform these to the orientation of our device. */
     transform_accel_gyro(&va);
     transform_accel_gyro(&vg);
     transform_mag(&vm);
 
-    // Apply the AHRS algorithm
+    /* Apply the AHRS algorithm */
     ahrs_update(DEG2RAD(vg.x), DEG2RAD(vg.y), DEG2RAD(vg.z),
                 va.x, va.y, va.z,
                 vm.x, vm.y, vm.z);
 
-    // Print the data out every 10 items
-    if (i++ % 10 == 0)
-    {
-      float temp;
-      ESP_ERROR_CHECK(get_temperature_celsius(&temp));
+    /* Update global_imu data */
+    float heading, pitch, roll;
+    ahrs_get_euler_in_degrees(&heading, &pitch, &roll);
+    global_imu.heading = heading;
+    global_imu.pitch = pitch;
+    global_imu.roll = roll;
 
-      float heading, pitch, roll;
-      ahrs_get_euler_in_degrees(&heading, &pitch, &roll);
-      ESP_LOGI(IMU_TAG, "heading: %2.3f°, pitch: %2.3f°, roll: %2.3f°, Temp %2.3f°C", heading, pitch, roll, temp);
+    if (i++ % 1000 == 0)
+    {
+      // float temp;
+      // ESP_ERROR_CHECK(get_temperature_celsius(&temp));
+
+      ESP_LOGI("[IMU]", "heading: %2.3f°, pitch: %2.3f°, roll: %2.3f°", heading, pitch, roll);
 
       // Make the WDT happy
       vTaskDelay(5);
     }
-
+    // no idea why this is here
     imu_pause();
   }
 }
@@ -121,7 +141,6 @@ void run_imu(void)
 
 static void imu_task(void *arg)
 {
-
 #ifdef CONFIG_CALIBRATION_MODE
   calibrate_gyro();
   calibrate_accel();
@@ -137,69 +156,118 @@ static void imu_task(void *arg)
   vTaskDelete(NULL);
 }
 
-// END IMU, BEGIN GPS 
 
-/* NMEA Parser example, that decode data stream from GPS receiver
+/* Basic transmit task to send a counter every 2.5 seconds */
+void task_tx(void *p)
+{
+   static uint32_t counter = 0;
+   ESP_LOGI("[TX]", "Starting");
+   for(;;) {
+      lora_send_packet_blocking((uint8_t*)&counter, 4);
+      ESP_LOGI("[TX]", "counter: %ld", counter);
+      counter++;
+      vTaskDelay(pdMS_TO_TICKS(2500));
+   }
+}
 
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
 
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
+/* Basic receive task to turn radio into receive mode and block until data is received */
+void task_rx(void *p)
+{
+   uint8_t buf[4];
+   int x;
+   for(;;) {
+      x = lora_receive_packet_blocking(buf, sizeof(buf));
+      ESP_LOGI("[RX]", "%d bytes, counter: %ld", x, (uint32_t) buf[0]);
+      vTaskDelay(1);
+   }
+}
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_log.h"
-#include "nmea_parser.h"
 
-static const char *GPS_TAG = "[GPS]";
+/* Task to send a counter and listen for a counter periodically*/
+void task_both(void *p) {
+   
+   for(;;) {
 
-#define TIME_ZONE (-8)   // PST
-#define YEAR_BASE (2000) //date in GPS starts from 2000
+   }
+}
+
 
 /**
- * @brief GPS Event Handler
+ * @brief GPS Event Handler, logs the GPS data to serial and transmits latitude, longitude, and altitude over lora.
  *
  * @param event_handler_arg handler specific arguments
  * @param event_base event base, here is fixed to ESP_NMEA_EVENT
  * @param event_id event id
  * @param event_data event specific arguments
  */
-static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
+void update_global_gps(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
-    gps_t *gps = NULL;
-    switch (event_id) {
-    case GPS_UPDATE:
-        gps = (gps_t *)event_data;
-        /* print information parsed from GPS statements */
-        ESP_LOGI(GPS_TAG, "%d/%d/%d %d:%d:%d => \r\n"
-                 "\t\t\t\t\t\tlatitude   = %.05f°N\r\n"
-                 "\t\t\t\t\t\tlongitude = %.05f°E\r\n"
-                 "\t\t\t\t\t\taltitude   = %.02fm\r\n"
-                 "\t\t\t\t\t\tspeed      = %fm/s",
-                 gps->date.year + YEAR_BASE, gps->date.month, gps->date.day,
-                 gps->tim.hour + TIME_ZONE, gps->tim.minute, gps->tim.second,
-                 gps->latitude, gps->longitude, gps->altitude, gps->speed);
-        break;
-    case GPS_UNKNOWN:
-        /* print unknown statements */
-        ESP_LOGW(GPS_TAG, "Unknown statement:%s", (char *)event_data);
-        break;
-    default:
-        break;
-    }
+   global_gps = *((gps_t *)event_data);
+   gps_debug(&global_gps);
+   send_lora_gps();
 }
 
 
-void app_main(void) {
-  /* NMEA parser configuration */
-  // nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
-  /* init NMEA parser library */
-  // nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
-  /* register event handler for NMEA parser library */
-  // nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL);
+/* Format latitude, longitude, altitude and send via lora */
+void send_lora_gps() {
+  float latitude = global_gps.latitude;
+  float longitude = global_gps.longitude;
+  float altitude = global_gps.altitude;
+
+   // TODO: encryption 
+   float buf[3] = {latitude, longitude, altitude};
+   
+   lora_send_packet_blocking((uint8_t*)buf, 3 * sizeof(float));
+   ESP_LOGI("[LORA_TX_GPS]", "Lat: %0.5f, Long: %0.5f, Altitude: %0.5f", latitude, longitude, altitude);
+}
+
+
+/* Task for receiving GPS over lora */
+void receive_lora_gps(void*) {
+   float buf[3];
+   for (;;) {
+      lora_receive_packet_blocking((uint8_t*)buf, 3 * sizeof(float));
+      ESP_LOGI("[LORA_RX_GPS]", "Lat: %0.5f, Long: %0.5f, Altitude: %0.5f", buf[0], buf[1], buf[2]);
+      vTaskDelay(1);
+   }
+}
+
+
+void app_main()
+{
+  /* Setup GPS, TODO: change event loop stuff */
+  nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
+  nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
+  nmea_parser_add_handler(nmea_hdl, update_global_gps, NULL, SCREEN_UPDATE);
+  
+  /* Setup IMU and start the polling task. */
   xTaskCreate(imu_task, "imu_task", 4096, NULL, 10, NULL);
+
+  /* Setup buttons */
+  button_handle_t left_btn = init_btn(LEFT_BUTTON_PIN);
+  button_handle_t right_btn = init_btn(RIGHT_BUTTON_PIN);
+
+  iot_button_register_cb(left_btn, BUTTON_PRESS_DOWN, button_single_click_cb, NULL);
+  iot_button_register_cb(right_btn, BUTTON_PRESS_DOWN, button_single_click_cb, NULL);
+
+  /* Setup Lora Radio */
+  lora_init();
+  lora_set_frequency(915e6);
+  lora_enable_crc();
+
+  // Varun Encryption stuff ===============
+  // char key[256];  // defaulting to zeros
+  // unsigned int keybits = 256;
+
+  // mbedtls_aes_xts_context ctx;
+  // mbedtls_aes_xts_context * ctx_ptr = &ctx;
+  // mbedtls_aes_xts_init(ctx_ptr);
+
+  // mbedtls_aes_xts_setkey_enc(ctx_ptr, key, keybits)
+  // Varun Encryption stuff ===============
+
+  // xTaskCreate(&task_tx, "task_tx", 2048, NULL, 5, NULL);
+  // xTaskCreate(&task_rx, "task_rx", 2048, NULL, 5, NULL);
+  // xTaskCreate(&receive_lora_gps, "task_lora_rx", 2048, NULL, 5, NULL);
 }
