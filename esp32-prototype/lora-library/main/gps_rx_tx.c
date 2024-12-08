@@ -111,12 +111,12 @@ void app_main()
 
 
    // Setup GPS event handler to send data using `send_lora_gps`
-//   nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
-//   nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
-//   nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL, SCREEN_UPDATE);
+  nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
+  nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
+  nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL, SCREEN_UPDATE);
 
    // xTaskCreate(&task_tx, "task_tx", 2048, NULL, 5, NULL);
-   xTaskCreate(&task_rx, "task_rx", 2048, NULL, 5, NULL);
+   // xTaskCreate(&task_rx, "task_rx", 2048, NULL, 5, NULL);
    // xTaskCreate(&receive_lora_gps, "task_lora_rx", 2048, NULL, 5, NULL);
 }
 

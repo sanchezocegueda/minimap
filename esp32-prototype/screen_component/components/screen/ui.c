@@ -191,12 +191,12 @@ void draw_campanile(gps_t* global_gps, imu_data_t* global_imu)
     float x_ofs;
     float y_ofs;
 
-    gps_to_cartesian(global_gps->latitude, global_gps->longitude, CAMPANILE_LATITUDE, CAMPANILE_LONGITUDE, &x_ofs, &y_ofs);
+    gps_to_cartesian(CORY_DOORS_LATITUDE, CORY_DOORS_LONGITUDE, CAMPANILE_LATITUDE, CAMPANILE_LONGITUDE, &x_ofs, &y_ofs);
     
     adjust_offsets(&x_ofs, &y_ofs, global_imu->heading);    
 
     add_bubble(0, 0, "you");
-
+    ESP_LOGI("[DRAW_CAMPANILE]", "x_ofs: %0.3f\ty_ofs: %0.3f", x_ofs, y_ofs);
     add_bubble(x_ofs, y_ofs, "campanile");
 }
 
