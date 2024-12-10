@@ -132,12 +132,11 @@ void display_gps_text(gps_t* global_gps)
 
 void display_imu_text(imu_data_t* global_imu) 
 {
-    lv_obj_clean(lv_screen_active());
-    lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x020C0E), LV_PART_MAIN);
-
     char label[32];
     sprintf(label, "heading = %.03f°", global_imu->heading);
-    add_bubble(0, 2, label);
+    float x = 50.0, y = 50.0;
+    adjust_offsets(&x,&y, global_imu->heading);
+    add_bubble(x, y, label);
 }
 
 void draw_campanile(gps_t* global_gps, imu_data_t* global_imu)
@@ -220,7 +219,6 @@ void update_screen(lv_display_t *disp, gps_t* global_gps, imu_data_t* global_imu
     // display_gps_text(global_gps);
 
     /* Write IMU data */
-    // display_imu_text(global_imu);
     
     /* Get LoRa data */
     // TODO
@@ -230,5 +228,6 @@ void update_screen(lv_display_t *disp, gps_t* global_gps, imu_data_t* global_imu
     // draw_heading(global_imu);
     // gps_debug(global_gps);
     draw_campanile(global_gps, global_imu);
+    display_imu_text(global_imu);
 }
 

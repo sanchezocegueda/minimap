@@ -27,12 +27,7 @@
 
 #include "lora.h"
 
-#include "mbedtls/aes.h"
-#include "mbedtls/entropy.h"
-#include "mbedtls/ctr_drbg.h"
-
-// #include "mbedtls/gcm.h"
-
+#include "psa/crypto.h"
 
 /* TODO: Cleanup */
 void send_lora_gps();
@@ -101,7 +96,7 @@ static void transform_mag(vector_t *v)
 
 void run_imu(void)
 {
-  i2c_mpu9250_init(&cal_mpu92_65);
+  i2c_mpu9250_init(&cal_mpu9250_6500);
   ahrs_init(SAMPLE_FREQ_Hz, 0.8);
 
   uint64_t i = 0;
@@ -264,64 +259,6 @@ void receive_lora_gps(void*) {
 }
 
 /* Testing encryption */
-void ctr(mbedtls_aes_context *aes);
-
-void test_encryption() {
-  /* Randomly generate an aes key https://mbed-tls.readthedocs.io/en/latest/kb/how-to/generate-an-aes-key/ */
-  mbedtls_ctr_drbg_context ctr_drb;
-  mbedtls_entropy_context entropy;
-  unsigned char key[16];
-  char *pers = "aes generate key";
-
-  mbedtls_entropy_init(&entropy);
-  mbedtls_ctr_drbg_init(&ctr_drb);
-
-  int ret;
-  if ((ret = mbedtls_ctr_drbg_seed(&ctr_drb, mbedtls_entropy_func, &entropy,
-                                   (unsigned char *)pers, strlen(pers))) != 0)
-  {
-    printf(" failed\n ! mbedtls_ctr_drbg_init returned -0x%04x\n", -ret);
-  }
-
-  if ((ret = mbedtls_ctr_drbg_random(&ctr_drb, key, 16)) != 0)
-  {
-    printf(" failed\n ! mbedtls_ctr_drbg_random returned -0x%04x\n", -ret);
-  }
-
-
-  /* Init mbedtls context and setup key for encryption */
-  mbedtls_aes_context aes;
-  mbedtls_aes_init(&aes);
-
-  mbedtls_aes_setkey_enc(&aes, key, 16);
-
-  ctr(&aes);
-}
-
-
-void ctr(mbedtls_aes_context *aes)
-{
-    unsigned char input[128];
-    unsigned char encrypt_output[128];
-    unsigned char decrypt_output[128];
-    const char* msg =  "123456789012345";
-    size_t length = strlen(msg) + 1;
-    memcpy(input, msg, length);
-
-    size_t nc_off = 0;
-    size_t nc_off1 = 0;
-    unsigned char nonce_counter[16] = {0};
-    unsigned char stream_block[16] = {0};
-    unsigned char nonce_counter1[16] = {0};
-    unsigned char stream_block1[16] = {0};
-    // size_t iv_offset = 0;
-    // size_t iv_offset1 = 0;
-    mbedtls_aes_crypt_ctr(aes, length, &nc_off, nonce_counter, stream_block, input, encrypt_output);
-    mbedtls_aes_crypt_ctr(aes, length, &nc_off1, nonce_counter1, stream_block1, encrypt_output, decrypt_output);
-    ESP_LOG_BUFFER_HEX("ctr", encrypt_output, length);
-    ESP_LOG_BUFFER_HEX("ctr", decrypt_output, length);
-    ESP_LOGI("ctr", "%s", decrypt_output);
-}
 
 void app_main()
 {
