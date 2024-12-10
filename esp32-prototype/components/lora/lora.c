@@ -8,6 +8,8 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "esp_log.h"
+
 /*
  * Register definitions
  */
@@ -57,8 +59,6 @@
 /*
  * IRQ masks
  */
-#define IRQ_TX_DONE_MASK               0x08
-#define IRQ_PAYLOAD_CRC_ERROR_MASK     0x20
 #define IRQ_RX_DONE_MASK               0x40
 
 #define PA_OUTPUT_RFO_PIN              0
@@ -77,6 +77,10 @@ static long __frequency;
 #define DIO0_TX_DONE (1 << 6)
 #define DIO0_RX_DONE 0
 #define ESP_INTR_FLAG_DEFAULT 0
+#define IRQ_FLAGS_RX_TIMEOUT        (1ULL << 7)
+#define IRQ_FLAGS_RX_DONE           (1ULL << 6)
+#define IRQ_FLAGS_PAYLOAD_CRC_ERROR (1ULL << 5)
+#define IRQ_FLAGS_TX_DONE           (1ULL << 3)
 
 /*
  * Before transmitting, we config DIO0 to interrupt TX_DONE, and config to RX_DONE before receiving.
@@ -408,10 +412,10 @@ lora_send_packet(uint8_t *buf, int size)
     * Start transmission and wait for conclusion.
     */
    lora_write_reg(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_TX);
-   while((lora_read_reg(REG_IRQ_FLAGS) & IRQ_TX_DONE_MASK) == 0)
+   while((lora_read_reg(REG_IRQ_FLAGS) & IRQ_FLAGS_TX_DONE) == 0)
       vTaskDelay(2);
 
-   lora_write_reg(REG_IRQ_FLAGS, IRQ_TX_DONE_MASK);
+   lora_write_reg(REG_IRQ_FLAGS, IRQ_FLAGS_TX_DONE);
 }
 
 /**
@@ -432,8 +436,8 @@ lora_send_packet_blocking(uint8_t *buf, int size)
    lora_write_reg(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_TX);
    int event;
    // TODO: Make 5000 a customizable delay
-   if (xQueueReceive(lora_irq_queue, &event, 5000) && event == IRQ_TX_DONE_MASK)
-         lora_write_reg(REG_IRQ_FLAGS, IRQ_TX_DONE_MASK); // clear bit in IRQ Status register
+   if (xQueueReceive(lora_irq_queue, &event, 5000) && event == IRQ_FLAGS_TX_DONE)
+         lora_write_reg(REG_IRQ_FLAGS, IRQ_FLAGS_TX_DONE); // clear bit in IRQ Status register
 }
 
 int lora_read_fifo(uint8_t *buf, int size)
@@ -486,7 +490,7 @@ lora_receive_packet(uint8_t *buf, int size)
    int irq = lora_read_reg(REG_IRQ_FLAGS);
    lora_write_reg(REG_IRQ_FLAGS, irq);
    if((irq & IRQ_RX_DONE_MASK) == 0) return 0;
-   if(irq & IRQ_PAYLOAD_CRC_ERROR_MASK) return 0;
+   if(irq & IRQ_FLAGS_PAYLOAD_CRC_ERROR) return 0;
 
    return lora_read_fifo(buf, size);
 }
@@ -514,8 +518,22 @@ lora_receive_packet_blocking(uint8_t *buf, int size)
    __DIO0_RX = true;
    lora_receive();
    int event;
-    if (xQueueReceive(lora_irq_queue, &event, portMAX_DELAY) && event == IRQ_RX_DONE_MASK)
+    if (xQueueReceive(lora_irq_queue, &event, portMAX_DELAY) && event == IRQ_FLAGS_RX_DONE) {
+      int irq = lora_read_reg(REG_IRQ_FLAGS);
+      if(irq & IRQ_FLAGS_PAYLOAD_CRC_ERROR) {
+         ESP_LOGI("[DEBUG LORA BLOCKING]", "CRC error");
+         lora_write_reg(REG_IRQ_FLAGS, IRQ_FLAGS_PAYLOAD_CRC_ERROR | IRQ_FLAGS_RX_DONE); // clear bit in IRQ Status register
+         return 0;
+      }
+      if (irq & IRQ_FLAGS_RX_TIMEOUT) {
+         ESP_LOGI("[DEBUG LORA BLOCKING]", "timeout");
+         lora_write_reg(REG_IRQ_FLAGS, IRQ_FLAGS_RX_TIMEOUT | IRQ_FLAGS_RX_DONE); // clear bit in IRQ Status register
+         return 0;
+      }
+      ESP_LOGI("[DEBUG LORA BLOCKING]", "No errors");
+      lora_write_reg(REG_IRQ_FLAGS, IRQ_FLAGS_RX_DONE); // clear bit in IRQ Status register
       return lora_read_fifo(buf, size);
+    }
    return 0;
 }
 
@@ -570,7 +588,7 @@ lora_dump_registers(void)
 static void IRAM_ATTR
 lora_isr_handler(void* arg)
 {
-   int event = __DIO0_RX ? IRQ_RX_DONE_MASK : IRQ_TX_DONE_MASK;
+   int event = __DIO0_RX ? IRQ_FLAGS_RX_DONE : IRQ_FLAGS_TX_DONE;
    xQueueSendFromISR(lora_irq_queue, &event, NULL);
 }
 

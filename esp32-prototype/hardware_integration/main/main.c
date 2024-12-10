@@ -26,7 +26,13 @@
 #include "common.h"
 
 #include "lora.h"
+
 #include "mbedtls/aes.h"
+#include "mbedtls/entropy.h"
+#include "mbedtls/ctr_drbg.h"
+
+// #include "mbedtls/gcm.h"
+
 
 /* TODO: Cleanup */
 void send_lora_gps();
@@ -40,20 +46,20 @@ QueueHandle_t button_event_queue;
 
 /* IMU Calibration, set accordingly in run_imu */
 calibration_t cal_mpu92_65 = {
-    .mag_offset = {.x = 40.242188, .y = -38.000000, .z = -17.740234},
-    .mag_scale = {.x = 1.013800, .y = 1.010465, .z = 0.976592},
-    .gyro_bias_offset = {.x = -2.274468, .y = -1.300148, .z = -2.120367},
-    .accel_offset = {.x = -0.007656, .y = 0.117932, .z = 0.021797},
-    .accel_scale_lo = {.x = 0.993931, .y = 1.012075, .z = 1.023260},
-    .accel_scale_hi = {.x = -0.998414, .y = -0.985158, .z = -0.995281}};
+    .mag_offset = {.x = 46.160156, .y = -11.281250, .z = 21.173828},
+    .mag_scale = {.x = 1.013871, .y = 0.983708, .z = 1.002889},
+    .gyro_bias_offset = {.x = -2.262275, .y = -1.421279, .z = -2.291301},
+    .accel_offset = {.x = 0.009100, .y = 0.053621, .z = 0.056311},
+    .accel_scale_lo = {.x = 0.999614, .y = 1.015274, .z = 1.023689},
+    .accel_scale_hi = {.x = -0.997792, .y = -0.985116, .z = -1.002624}};
 
 calibration_t cal_mpu9250_6500 = {
-    .mag_offset = {.x = 26.035156, .y = 22.546875, .z = -16.992188},
-    .mag_scale = {.x = 0.999656, .y = 1.020460, .z = 0.980675},
-    .gyro_bias_offset = {.x = -0.702319, .y = -0.755465, .z = -1.832088},
-    .accel_offset = {.x = 0.029607, .y = 0.114505, .z = 0.050498},
-    .accel_scale_lo = {.x = 1.012515, .y = 1.022693, .z = 1.037164},
-    .accel_scale_hi = {.x = -0.977422, .y = -0.970941, .z = -0.982524}};
+    .mag_offset = {.x = 47.226562, .y = 17.671875, .z = 11.132812},
+    .mag_scale = {.x = 0.943459, .y = 1.238415, .z = 0.882935},
+    .gyro_bias_offset = {.x = -1.029911, .y = -0.749238, .z = -1.779955},
+    .accel_offset = {.x = 0.027026, .y = 0.049613, .z = 0.035468},
+    .accel_scale_lo = {.x = 1.014326, .y = 1.026735, .z = 1.031887},
+    .accel_scale_hi = {.x = -0.986112, .y = -0.977564, .z = -0.994764}};
 
 
 /**
@@ -123,15 +129,15 @@ void run_imu(void)
     global_imu.pitch = pitch;
     global_imu.roll = roll;
 
-    if (i++ % 1000 == 0)
+    if (i++ % 10 == 0)
     {
       // float temp;
       // ESP_ERROR_CHECK(get_temperature_celsius(&temp));
 
-      ESP_LOGI("[IMU]", "heading: %2.3f°, pitch: %2.3f°, roll: %2.3f°", heading, pitch, roll);
+      // ESP_LOGI("[IMU]", "heading: %2.3f°, pitch: %2.3f°, roll: %2.3f°", heading, pitch, roll);
 
       // Make the WDT happy
-      vTaskDelay(5);
+      // vTaskDelay(1);
     }
     // no idea why this is here
     imu_pause();
@@ -163,7 +169,7 @@ void task_tx(void *p)
    static uint32_t counter = 0;
    ESP_LOGI("[TX]", "Starting");
    for(;;) {
-      lora_send_packet_blocking((uint8_t*)&counter, 4);
+      lora_send_packet((uint8_t*)&counter, 4);
       ESP_LOGI("[TX]", "counter: %ld", counter);
       counter++;
       vTaskDelay(pdMS_TO_TICKS(2500));
@@ -177,35 +183,40 @@ void task_rx(void *p)
    uint8_t buf[4];
    int x;
    for(;;) {
-      x = lora_receive_packet_blocking(buf, sizeof(buf));
-      ESP_LOGI("[RX]", "%d bytes, counter: %ld", x, (uint32_t) buf[0]);
+      lora_receive();
+      while(lora_received()) {
+        x = lora_receive_packet(buf, sizeof(buf));
+        ESP_LOGI("[RX]", "%d bytes, counter: %ld", x, (uint32_t) buf[0]);
+      }
       vTaskDelay(1);
    }
-}
 
+}
 
 /* Task to send a counter and listen for a counter periodically*/
-void task_both(void *p) {
-   
-   for(;;) {
-
-   }
+void task_both(void *p)
+{
+  ESP_LOGI("[task both]", "started");
+  static uint32_t counter = 0;
+  uint8_t buf[4];
+  int bytes_read;
+  for (;;)
+  {
+    lora_send_packet_blocking((uint8_t *)&counter, 4);
+    ESP_LOGI("[TX]", "counter: %ld", counter);
+    bytes_read = lora_receive_packet_blocking(buf, sizeof(buf));
+    ESP_LOGI("[RX]", "%d bytes, counter: %ld", bytes_read, *((uint32_t*)buf));
+    counter++;
+    vTaskDelay(1);
+  }
 }
 
-
-/**
- * @brief GPS Event Handler, logs the GPS data to serial and transmits latitude, longitude, and altitude over lora.
- *
- * @param event_handler_arg handler specific arguments
- * @param event_base event base, here is fixed to ESP_NMEA_EVENT
- * @param event_id event id
- * @param event_data event specific arguments
- */
+/* Update global_gps, event handler for nmea_event. TODO: switch to thread-safe ds */
 void update_global_gps(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
    global_gps = *((gps_t *)event_data);
-   gps_debug(&global_gps);
-   send_lora_gps();
+  //  gps_debug(&global_gps);
+  //  send_lora_gps();
 }
 
 
@@ -218,7 +229,7 @@ void send_lora_gps() {
    // TODO: encryption 
    float buf[3] = {latitude, longitude, altitude};
    
-   lora_send_packet_blocking((uint8_t*)buf, 3 * sizeof(float));
+   lora_send_packet((uint8_t*)buf, 3 * sizeof(float));
    ESP_LOGI("[LORA_TX_GPS]", "Lat: %0.5f, Long: %0.5f, Altitude: %0.5f", latitude, longitude, altitude);
 }
 
@@ -227,8 +238,11 @@ void send_lora_gps() {
 void receive_lora_gps(void*) {
    float buf[3];
    for (;;) {
-      lora_receive_packet_blocking((uint8_t*)buf, 3 * sizeof(float));
-      ESP_LOGI("[LORA_RX_GPS]", "Lat: %0.5f, Long: %0.5f, Altitude: %0.5f", buf[0], buf[1], buf[2]);
+      lora_receive();
+      while(lora_received()) {
+        int bytes_read = lora_receive_packet((uint8_t*)buf, 3 * sizeof(float));
+        ESP_LOGI("[LORA_RX_GPS]", "Bytes read: %d, Lat: %0.5f, Long: %0.5f, Altitude: %0.5f", bytes_read, buf[0], buf[1], buf[2]);
+      }
       vTaskDelay(1);
    }
 }
@@ -237,12 +251,11 @@ void receive_lora_gps(void*) {
 void app_main()
 {
   /* Setup GPS, TODO: change event loop stuff */
-  nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
-  nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
-  nmea_parser_add_handler(nmea_hdl, update_global_gps, NULL, SCREEN_UPDATE);
+  // nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
+  // nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
   
   /* Setup IMU and start the polling task. */
-  xTaskCreate(imu_task, "imu_task", 4096, NULL, 10, NULL);
+  // xTaskCreate(imu_task, "imu_task", 4096, NULL, 10, NULL);
 
   /* Setup buttons */
   button_handle_t left_btn, right_btn;
@@ -256,18 +269,71 @@ void app_main()
   lora_set_frequency(915e6);
   lora_enable_crc();
 
-  // Varun Encryption stuff ===============
-  // char key[256];  // defaulting to zeros
-  // unsigned int keybits = 256;
+  // nmea_parser_add_handler(nmea_hdl, update_global_gps, NULL, SCREEN_UPDATE);
 
-  // mbedtls_aes_xts_context ctx;
-  // mbedtls_aes_xts_context * ctx_ptr = &ctx;
-  // mbedtls_aes_xts_init(ctx_ptr);
-
-  // mbedtls_aes_xts_setkey_enc(ctx_ptr, key, keybits)
-  // Varun Encryption stuff ===============
-
-  // xTaskCreate(&task_tx, "task_tx", 2048, NULL, 5, NULL);
-  // xTaskCreate(&task_rx, "task_rx", 2048, NULL, 5, NULL);
+  // xTaskCreate(&task_tx, "task_tx", 4096, NULL, 5, NULL);
+  // xTaskCreate(&task_rx, "task_rx", 4096, NULL, 5, NULL);
+  xTaskCreate(&task_both, "task_both", 4096, NULL, 5, NULL);
   // xTaskCreate(&receive_lora_gps, "task_lora_rx", 2048, NULL, 5, NULL);
+}
+
+
+/* Testing encryption */
+void ctr(mbedtls_aes_context *aes);
+
+void test_encryption() {
+  /* Randomly generate an aes key https://mbed-tls.readthedocs.io/en/latest/kb/how-to/generate-an-aes-key/ */
+  mbedtls_ctr_drbg_context ctr_drb;
+  mbedtls_entropy_context entropy;
+  unsigned char key[16];
+  char *pers = "aes generate key";
+
+  mbedtls_entropy_init(&entropy);
+  mbedtls_ctr_drbg_init(&ctr_drb);
+
+  int ret;
+  if ((ret = mbedtls_ctr_drbg_seed(&ctr_drb, mbedtls_entropy_func, &entropy,
+                                   (unsigned char *)pers, strlen(pers))) != 0)
+  {
+    printf(" failed\n ! mbedtls_ctr_drbg_init returned -0x%04x\n", -ret);
+  }
+
+  if ((ret = mbedtls_ctr_drbg_random(&ctr_drb, key, 16)) != 0)
+  {
+    printf(" failed\n ! mbedtls_ctr_drbg_random returned -0x%04x\n", -ret);
+  }
+
+
+  /* Init mbedtls context and setup key for encryption */
+  mbedtls_aes_context aes;
+  mbedtls_aes_init(&aes);
+
+  mbedtls_aes_setkey_enc(&aes, key, 16);
+
+  ctr(&aes);
+}
+
+
+void ctr(mbedtls_aes_context *aes)
+{
+    unsigned char input[128];
+    unsigned char encrypt_output[128];
+    unsigned char decrypt_output[128];
+    const char* msg =  "123456789012345";
+    size_t length = strlen(msg) + 1;
+    memcpy(input, msg, length);
+
+    size_t nc_off = 0;
+    size_t nc_off1 = 0;
+    unsigned char nonce_counter[16] = {0};
+    unsigned char stream_block[16] = {0};
+    unsigned char nonce_counter1[16] = {0};
+    unsigned char stream_block1[16] = {0};
+    // size_t iv_offset = 0;
+    // size_t iv_offset1 = 0;
+    mbedtls_aes_crypt_ctr(aes, length, &nc_off, nonce_counter, stream_block, input, encrypt_output);
+    mbedtls_aes_crypt_ctr(aes, length, &nc_off1, nonce_counter1, stream_block1, encrypt_output, decrypt_output);
+    ESP_LOG_BUFFER_HEX("ctr", encrypt_output, length);
+    ESP_LOG_BUFFER_HEX("ctr", decrypt_output, length);
+    ESP_LOGI("ctr", "%s", decrypt_output);
 }

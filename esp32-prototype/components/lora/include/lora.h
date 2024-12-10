@@ -1,7 +1,7 @@
 #ifndef __LORA_H__
 #define __LORA_H__
 
-void lora_reset(void);
+// void lora_reset(void);
 void lora_explicit_header_mode(void);
 void lora_implicit_header_mode(int size);
 void lora_idle(void);
