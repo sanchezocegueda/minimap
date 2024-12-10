@@ -27,36 +27,38 @@
 #define CORY_DOORS_LATITUDE 37.87535
 #define CORY_DOORS_ALTITUDE 150.10001
 
-/* TODO: Find a way to make this cleaner */
-
 typedef struct pos
 {
     float lat;
     float lon;
 } pos_t;
 
+float l2_dist(pos_t *pos)
+{
+    return sqrt((pos->lat * pos->lat) + (pos->lon * pos->lon));
+}
+
 float deg_to_rad(float deg)
 {
     return deg * (M_PI / 180.0f);
 }
 
+/**
+ * @brief This function takes the heading angle and converts it to a regular angle in radians.
+ * Heading angle is confusing because
+ *   (a) it is in degrees,
+ *   (b) it increases clockwise, and
+ *   (c) 0 is at the top
+ */
 float heading_to_rad(float heading_angle)
 {
-    // This function takes the heading angle and converts it to a regular angle in radiants
-    // Heading angle is confusing because
-    // (a) it is in degrees,
-    // (b) it increases clockwise, and
-    // (c) 0 is at the top
-
     float angle_deg = -heading_angle;
-
     float angle_rad = deg_to_rad(angle_deg);
-
     return angle_rad;
 }
 
 /* Converts x_ofts, y_ofs to polar then add the heading angle. Then convert back to rectangular. */
-void adjust_offsets(float *x_ofs, float *y_ofs, float heading_angle)
+void apply_rotation(float *x_ofs, float *y_ofs, float heading_angle)
 {
     float r = sqrt((*x_ofs) * (*x_ofs) + (*y_ofs) * (*y_ofs));
     float angle1 = atan2(*y_ofs, *x_ofs);
@@ -67,9 +69,12 @@ void adjust_offsets(float *x_ofs, float *y_ofs, float heading_angle)
     *y_ofs = r * sin(theta);
 }
 
-void add_bubble(float x_ofs, float y_ofs, char *label)
+/**
+ * @brief draw a labeled bubble on screen.
+ */
+void draw_bubble(float x_ofs, float y_ofs, char *label)
 {
-
+    /* Set bubble styling */
     static lv_style_t style_bubble;
     lv_style_init(&style_bubble);
     lv_style_set_radius(&style_bubble, 20);
@@ -77,22 +82,19 @@ void add_bubble(float x_ofs, float y_ofs, char *label)
     lv_style_set_bg_opa(&style_bubble, LV_OPA_COVER);
     lv_style_set_bg_color(&style_bubble, lv_color_hex(0x23CEF1));
 
-    lv_obj_t *person1_bubble = lv_obj_create(lv_screen_active());
-    lv_obj_align(person1_bubble, LV_ALIGN_CENTER, x_ofs, y_ofs);
-    lv_obj_add_style(person1_bubble, &style_bubble, 0);
-    lv_obj_set_style_radius(person1_bubble, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_size(person1_bubble, 20, 20);
+    /* Create bubble object */
+    lv_obj_t *bubble_obj = lv_obj_create(lv_screen_active());
+    lv_obj_align(bubble_obj, LV_ALIGN_CENTER, x_ofs, y_ofs);
+    lv_obj_add_style(bubble_obj, &style_bubble, 0);
+    lv_obj_set_style_radius(bubble_obj, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_size(bubble_obj, 20, 20);
 
-    lv_obj_t *person1_label = lv_label_create(lv_screen_active());
-    lv_label_set_text(person1_label, label);
-    lv_obj_set_size(person1_label, 60, 30);
-    lv_obj_set_style_text_color(person1_label, lv_color_hex(0xffffff), LV_PART_MAIN);
-    lv_obj_align_to(person1_label, person1_bubble, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
-}
-
-float l2_dist(pos_t *pos)
-{
-    return sqrt((pos->lat * pos->lat) + (pos->lon * pos->lon));
+    /* Create label object */
+    lv_obj_t *label_obj = lv_label_create(lv_screen_active());
+    lv_label_set_text(label_obj, label);
+    lv_obj_set_size(label_obj, 60, 30);
+    lv_obj_set_style_text_color(label_obj, lv_color_hex(0xffffff), LV_PART_MAIN);
+    lv_obj_align_to(label_obj, bubble_obj, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
 }
 
 void display_screen(pos_t *curr_pos, pos_t *other_pos[], int num_other, float offset_angle)
@@ -110,7 +112,7 @@ void display_screen(pos_t *curr_pos, pos_t *other_pos[], int num_other, float of
             max_dist_abs = l2_dist(other_pos[i]);
         }
     }
-    add_bubble(0, 0, "you");
+    draw_bubble(0, 0, "you");
     float screen_scale = SCREEN_RADIUS / max_dist_abs;
     for (int i = 0; i < num_other; i++)
     {
@@ -119,7 +121,7 @@ void display_screen(pos_t *curr_pos, pos_t *other_pos[], int num_other, float of
         char label[16];
         sprintf(label, "Fren %d", i + 1);
         ESP_LOGI("[ALEX DEMO]", "X_ofs: %f, y_ofs %f", x_ofs, y_ofs);
-        add_bubble(x_ofs, y_ofs, label);
+        draw_bubble(x_ofs, y_ofs, label);
         lv_delay_ms(80);
     }
 }
@@ -128,7 +130,7 @@ void display_gps_text(gps_t *global_gps)
 {
     char label[32];
     sprintf(label, "lat = %.03f°N", global_gps->latitude);
-    add_bubble(0, -2, label);
+    draw_bubble(0, -2, label);
 }
 
 void display_imu_text(imu_data_t *global_imu)
@@ -136,8 +138,8 @@ void display_imu_text(imu_data_t *global_imu)
     char label[32];
     sprintf(label, "heading = %.03f°", global_imu->heading);
     float x = 50.0, y = 50.0;
-    adjust_offsets(&x, &y, global_imu->heading);
-    add_bubble(x, y, label);
+    apply_rotation(&x, &y, global_imu->heading);
+    draw_bubble(x, y, label);
 }
 
 void draw_campanile(gps_t *global_gps, imu_data_t *global_imu)
@@ -162,47 +164,10 @@ void draw_campanile(gps_t *global_gps, imu_data_t *global_imu)
     x_ofs = -50.0;
     y_ofs = -50.0;
     ESP_LOGI("[DRAW_CAMPANILE]", "raw x_ofs: %0.5f\trawy_ofs: %0.5f", x_ofs, y_ofs);
-    adjust_offsets(&x_ofs, &y_ofs, global_imu->heading);
+    apply_rotation(&x_ofs, &y_ofs, global_imu->heading);
     ESP_LOGI("[DRAW_CAMPANILE]", "x_ofs: %0.3f\ty_ofs: %0.3f", x_ofs, y_ofs);
-    add_bubble(x_ofs, y_ofs, "campanile");
-    add_bubble(0, 0, "you");
-}
-
-void draw_sather(gps_t *global_gps, imu_data_t *global_imu)
-{
-    lv_obj_clean(lv_screen_active());
-    lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x020C0E), LV_PART_MAIN);
-
-    // offsets of sather gate
-    float x_ofs;
-    float y_ofs;
-
-    add_bubble(0, 0, "you");
-
-    adjust_offsets(&x_ofs, &y_ofs, global_imu->heading);
-
-    add_bubble(x_ofs, y_ofs, "sather");
-}
-
-void draw_heading(imu_data_t *global_imu)
-{
-    float r = SCREEN_RADIUS / 2;
-    float theta = deg_to_rad(global_imu->heading);
-    float x = r * cosf(theta);
-    float y = r * sinf(theta);
-
-    add_bubble(x, y, "N");
-    ESP_LOGI("[DEBUG]", "%0.5f\t%0.5f", x, y);
-    add_bubble(0, 0, "you");
-}
-
-void varun_ui(lv_display_t *disp)
-{
-    lv_obj_t *scr = lv_display_get_screen_active(disp);
-    pos_t curr_pos = {0, 0};
-    pos_t pos_1 = {rand() % 100, rand() % 100};
-    pos_t *other_pos[2] = {&pos_1};
-    display_screen(&curr_pos, other_pos, 1, 0);
+    draw_bubble(x_ofs, y_ofs, "campanile");
+    draw_bubble(0, 0, "you");
 }
 
 /* Update information for the screen and display it. Gets called every 2ms. */
@@ -212,17 +177,7 @@ void update_screen(lv_display_t *disp, gps_t *global_gps, imu_data_t *global_imu
     lv_obj_clean(lv_screen_active());
     lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x020C0E), LV_PART_MAIN);
 
-    /* Write GPS data */
-    // display_gps_text(global_gps);
-
-    /* Write IMU data */
-
-    /* Get LoRa data */
-    // TODO
-
     /* Draw */
-    // draw_heading(global_imu);
-    // gps_debug(global_gps);
     draw_campanile(global_gps, global_imu);
     display_imu_text(global_imu);
 }
