@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "minimap_custom_symbols")(type "KiCad")(uri "${KIPRJMOD}/LocalLib/minimap_custom_symbols.kicad_sym")(options "")(descr ""))
+)
