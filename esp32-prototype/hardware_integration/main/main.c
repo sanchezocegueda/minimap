@@ -205,8 +205,24 @@ void task_both(void *p)
     lora_send_packet_blocking((uint8_t *)&counter, 4);
     ESP_LOGI("[TX]", "counter: %ld", counter);
     bytes_read = lora_receive_packet_blocking(buf, sizeof(buf));
+
     ESP_LOGI("[RX]", "%d bytes, counter: %ld", bytes_read, *((uint32_t*)buf));
     counter++;
+    vTaskDelay(1);
+  }
+}
+
+/* Task to send a counter and listen for a counter periodically*/
+void task_both_gps(void *p)
+{
+  ESP_LOGI("[task both gps]", "started");
+  float buf[3];
+  int bytes_read;
+  for (;;)
+  {
+    send_lora_gps();
+    int bytes_read = lora_receive_packet_blocking((uint8_t*)buf, 3 * sizeof(float));
+    ESP_LOGI("[LORA_RX_GPS]", "Bytes read: %d, Lat: %0.5f, Long: %0.5f, Altitude: %0.5f", bytes_read, buf[0], buf[1], buf[2]);
     vTaskDelay(1);
   }
 }
@@ -229,7 +245,7 @@ void send_lora_gps() {
    // TODO: encryption 
    float buf[3] = {latitude, longitude, altitude};
    
-   lora_send_packet((uint8_t*)buf, 3 * sizeof(float));
+   lora_send_packet_blocking((uint8_t*)buf, 3 * sizeof(float));
    ESP_LOGI("[LORA_TX_GPS]", "Lat: %0.5f, Long: %0.5f, Altitude: %0.5f", latitude, longitude, altitude);
 }
 
@@ -251,11 +267,11 @@ void receive_lora_gps(void*) {
 void app_main()
 {
   /* Setup GPS, TODO: change event loop stuff */
-  // nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
-  // nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
+  nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
+  nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
   
   /* Setup IMU and start the polling task. */
-  // xTaskCreate(imu_task, "imu_task", 4096, NULL, 10, NULL);
+  xTaskCreate(imu_task, "imu_task", 4096, NULL, 10, NULL);
 
   /* Setup buttons */
   button_handle_t left_btn, right_btn;
@@ -269,11 +285,11 @@ void app_main()
   lora_set_frequency(915e6);
   lora_enable_crc();
 
-  // nmea_parser_add_handler(nmea_hdl, update_global_gps, NULL, SCREEN_UPDATE);
+  nmea_parser_add_handler(nmea_hdl, update_global_gps, NULL, SCREEN_UPDATE);
 
   // xTaskCreate(&task_tx, "task_tx", 4096, NULL, 5, NULL);
   // xTaskCreate(&task_rx, "task_rx", 4096, NULL, 5, NULL);
-  xTaskCreate(&task_both, "task_both", 4096, NULL, 5, NULL);
+  xTaskCreate(&task_both_gps, "task_both", 4096, NULL, 5, NULL);
   // xTaskCreate(&receive_lora_gps, "task_lora_rx", 2048, NULL, 5, NULL);
 }
 
