@@ -19,7 +19,10 @@
 #define SATHERGATE_LONGITUDE -122.25947  // sather gate longitude (in degrees)
 #define SATHERGATE_LATITUDE  37.8702180  // sather gate latitude (in degrees)
 #define EARTH_RADIUS_M       6371000.0   // earth's radius in meters
-#define SCREEN_RADIUS        500         // corresponds to 500m radius
+#define SCREEN_RADIUS        100         // 100
+
+/* NOTE: y values are flipped on the screen. */
+
 /* GPS Data from right outside cory doors. */
 #define CORY_DOORS_LONGITUDE -122.25826 
 #define CORY_DOORS_LATITUDE    37.87535
@@ -46,13 +49,15 @@ float heading_to_rad(float heading_angle)
     // (c) 0 is at the top
 
 
-    float angle_deg = fmod(-heading_angle + 90.0, 360.0);
+    float angle_deg = -heading_angle;
 
     float angle_rad = deg_to_rad(angle_deg);
 
     return angle_rad;
 }
 
+
+/* Converts x_ofts, y_ofs to polar then add the heading angle. Then convert back to rectangular. */
 void adjust_offsets(float* x_ofs, float* y_ofs, float heading_angle)
 {
     float r = sqrt((*x_ofs) * (*x_ofs) + (*y_ofs) * (*y_ofs));
@@ -62,53 +67,6 @@ void adjust_offsets(float* x_ofs, float* y_ofs, float heading_angle)
 
     *x_ofs = r * cos(theta);
     *y_ofs = r * sin(theta);
-}
-
-
-
-void calculate_distance(float lat1, float lon1, float lat2, float lon2, float* x, float* y) {
-
-    float lat1_rad = deg_to_rad(lat1);
-    float lon1_rad = deg_to_rad(lon1);
-    float lat2_rad = deg_to_rad(lat2);
-    float lon2_rad = deg_to_rad(lon2);
-
-    float dlat = lat2_rad - lat1_rad;
-    float dlon = lon2_rad - lon1_rad;
-
-    // Haversine formula for distance
-    float a = sinf(dlat/2) * sinf(dlat/2) +
-               cosf(lat1_rad) * cosf(lat2_rad) *
-               sinf(dlon/2) * sinf(dlon/2);
-    float central_angle = 2 * atan2(sqrt(a), sqrt(1-a));
-
-    float total_distance = EARTH_RADIUS_M * central_angle;
-
-    // Calculate x and y components
-    // x is East-West (longitude difference)
-    // y is North-South (latitude difference)
-    *x = EARTH_RADIUS_M * (lon2_rad - lon1_rad) * 
-                  cos((lat1_rad + lat2_rad) / 2);
-    *y = EARTH_RADIUS_M * (lat2_rad - lat1_rad);
-
-    return;
-}
-
-
-void gps_to_cartesian(float lat1, float lon1, float lat2, float lon2, float* x, float* y) {
-    /* lat1 and lon1 are the user's latitude and longitude
-       lat2 and lon2 are the other actor's latitude and longitude 
-       result is stored in the pointers x and y */
-
-    float lat1_rad = deg_to_rad(lat1);
-    float lon1_rad = deg_to_rad(lon1);
-    float lat2_rad = deg_to_rad(lat2);
-    float lon2_rad = deg_to_rad(lon2);
-
-    *x = EARTH_RADIUS_M * (cos(lat2_rad) * cos(lon2_rad) - cos(lat1_rad) * cos(lon1_rad));
-    *y = EARTH_RADIUS_M * (cos(lat2_rad) * sin(lon2_rad) - cos(lat1_rad) * sin(lon1_rad));
-
-    return;
 }
 
 
@@ -187,17 +145,27 @@ void draw_campanile(gps_t* global_gps, imu_data_t* global_imu)
     lv_obj_clean(lv_screen_active());
     lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x020C0E), LV_PART_MAIN);
 
-    // offsets of campanile
-    float x_ofs;
-    float y_ofs;
-
-    gps_to_cartesian(CORY_DOORS_LATITUDE, CORY_DOORS_LONGITUDE, CAMPANILE_LATITUDE, CAMPANILE_LONGITUDE, &x_ofs, &y_ofs);
+    /* Campanile is a target to plot, we are CORY_DOORS. */
+    // Offsets of Campanile
+    float x_ofs = CAMPANILE_LONGITUDE - CORY_DOORS_LONGITUDE;
+    float y_ofs = CAMPANILE_LATITUDE - CORY_DOORS_LATITUDE;
     
-    adjust_offsets(&x_ofs, &y_ofs, global_imu->heading);    
+    // Scale
+    // Longitude ranges from -180 to 180
+    // Latitude ranges from -90 to 90
+    // hence why we scale them by different values
+    float adjust_x = 100;
+    float adjust_y = 100;
+    x_ofs = x_ofs * adjust_x;
+    y_ofs = y_ofs * adjust_y;
 
-    add_bubble(0, 0, "you");
-    ESP_LOGI("[DRAW_CAMPANILE]", "x_ofs: %0.3f\ty_ofs: %0.3f", x_ofs, y_ofs);
+    x_ofs = -50.0;
+    y_ofs = -50.0;
+    ESP_LOGI("[DRAW_CAMPANILE]", "raw x_ofs: %0.5f\trawy_ofs: %0.5f", x_ofs, y_ofs);
+    adjust_offsets(&x_ofs, &y_ofs, global_imu->heading);    
+   ESP_LOGI("[DRAW_CAMPANILE]", "x_ofs: %0.3f\ty_ofs: %0.3f", x_ofs, y_ofs);
     add_bubble(x_ofs, y_ofs, "campanile");
+    add_bubble(0, 0, "you");
 }
 
 void draw_sather(gps_t* global_gps, imu_data_t* global_imu) 
@@ -208,7 +176,6 @@ void draw_sather(gps_t* global_gps, imu_data_t* global_imu)
     // offsets of sather gate
     float x_ofs;
     float y_ofs;
-    gps_to_cartesian(global_gps->latitude, global_gps->longitude, SATHERGATE_LATITUDE, SATHERGATE_LONGITUDE, &x_ofs, &y_ofs);
 
     add_bubble(0, 0, "you");
 

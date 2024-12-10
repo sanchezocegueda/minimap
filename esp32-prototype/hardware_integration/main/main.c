@@ -101,7 +101,7 @@ static void transform_mag(vector_t *v)
 
 void run_imu(void)
 {
-  i2c_mpu9250_init(&cal_mpu9250_6500);
+  i2c_mpu9250_init(&cal_mpu92_65);
   ahrs_init(SAMPLE_FREQ_Hz, 0.8);
 
   uint64_t i = 0;
@@ -129,12 +129,12 @@ void run_imu(void)
     global_imu.pitch = pitch;
     global_imu.roll = roll;
 
-    if (i++ % 10 == 0)
+    if (i++ % 100 == 0)
     {
       // float temp;
       // ESP_ERROR_CHECK(get_temperature_celsius(&temp));
 
-      // ESP_LOGI("[IMU]", "heading: %2.3f°, pitch: %2.3f°, roll: %2.3f°", heading, pitch, roll);
+      ESP_LOGI("[IMU]", "heading: %2.3f°, pitch: %2.3f°, roll: %2.3f°", heading, pitch, roll);
 
       // Make the WDT happy
       // vTaskDelay(1);
@@ -263,37 +263,6 @@ void receive_lora_gps(void*) {
    }
 }
 
-
-void app_main()
-{
-  /* Setup GPS, TODO: change event loop stuff */
-  nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
-  nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
-  
-  /* Setup IMU and start the polling task. */
-  xTaskCreate(imu_task, "imu_task", 4096, NULL, 10, NULL);
-
-  /* Setup buttons */
-  button_handle_t left_btn, right_btn;
-  init_buttons(&left_btn, &right_btn, &button_event_queue);
-
-  iot_button_register_cb(left_btn, BUTTON_PRESS_DOWN, left_cb, NULL);
-  iot_button_register_cb(right_btn, BUTTON_PRESS_DOWN, right_cb, NULL);
-
-  /* Setup Lora Radio */
-  lora_init();
-  lora_set_frequency(915e6);
-  lora_enable_crc();
-
-  nmea_parser_add_handler(nmea_hdl, update_global_gps, NULL, SCREEN_UPDATE);
-
-  // xTaskCreate(&task_tx, "task_tx", 4096, NULL, 5, NULL);
-  // xTaskCreate(&task_rx, "task_rx", 4096, NULL, 5, NULL);
-  xTaskCreate(&task_both_gps, "task_both", 4096, NULL, 5, NULL);
-  // xTaskCreate(&receive_lora_gps, "task_lora_rx", 2048, NULL, 5, NULL);
-}
-
-
 /* Testing encryption */
 void ctr(mbedtls_aes_context *aes);
 
@@ -352,4 +321,36 @@ void ctr(mbedtls_aes_context *aes)
     ESP_LOG_BUFFER_HEX("ctr", encrypt_output, length);
     ESP_LOG_BUFFER_HEX("ctr", decrypt_output, length);
     ESP_LOGI("ctr", "%s", decrypt_output);
+}
+
+void app_main()
+{
+  /* Setup GPS, TODO: change event loop stuff */
+  nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
+  nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
+  
+  /* Setup IMU and start the polling task. */
+  xTaskCreate(imu_task, "imu_task", 4096, NULL, 10, NULL);
+
+  /* Setup buttons */
+  button_handle_t left_btn, right_btn;
+  init_buttons(&left_btn, &right_btn, &button_event_queue);
+
+  iot_button_register_cb(left_btn, BUTTON_PRESS_DOWN, left_cb, NULL);
+  iot_button_register_cb(right_btn, BUTTON_PRESS_DOWN, right_cb, NULL);
+
+  /* Setup Lora Radio */
+  lora_init();
+  lora_set_frequency(915e6);
+  lora_enable_crc();
+
+  nmea_parser_add_handler(nmea_hdl, update_global_gps, NULL, SCREEN_UPDATE);
+
+  // xTaskCreate(&task_tx, "task_tx", 4096, NULL, 5, NULL);
+  // xTaskCreate(&task_rx, "task_rx", 4096, NULL, 5, NULL);
+  xTaskCreate(&task_both_gps, "task_both", 4096, NULL, 5, NULL);
+  // xTaskCreate(&receive_lora_gps, "task_lora_rx", 2048, NULL, 5, NULL);
+
+  // test_encryption();
+  start_screen();
 }
