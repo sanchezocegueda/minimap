@@ -24,7 +24,8 @@
 - `RST`: `RST`, Reset radio
 
 ## GPS
-- `TX`: `18`, Serial transmit
+- `TX`: `34`, GPS uart transmit
+- `RX`: `33`, GPS uart receive
 
 ## Buttons
 These must be configured as pull-up resistors in software, active low. We directly wire each GPIO to one side of the button switch, and the other is grounded.
