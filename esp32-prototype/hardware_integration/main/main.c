@@ -289,5 +289,5 @@ void app_main()
   // xTaskCreate(&receive_lora_gps, "task_lora_rx", 2048, NULL, 5, NULL);
 
   // test_encryption();
-  start_screen();
+  xTaskCreate(screen_main_task, "Minimap", LVGL_TASK_STACK_SIZE, NULL, LVGL_TASK_PRIORITY, NULL);
 }

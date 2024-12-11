@@ -51,6 +51,7 @@
 #define LVGL_TASK_PRIORITY     2
 
 void start_screen(void);
+void screen_main_task(void(*));
 
 // TODO: Move to ui.h
 #include "nmea_parser.h"

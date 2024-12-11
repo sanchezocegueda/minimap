@@ -68,8 +68,9 @@ static void increase_lvgl_tick(void *arg)
 }
 
 /* The actual code that loops and updates the screen */
-static void screen_main_task(void *arg)
+void screen_main_task(void *arg)
 {
+    start_screen();
     ESP_LOGI(SCREEN_TAG, "Starting LVGL task");
     uint32_t time_till_next_ms = 0;
     uint32_t time_threshold_ms = 1000 / CONFIG_FREERTOS_HZ;
@@ -196,8 +197,4 @@ void start_screen(void) {
     };
     /* Register done callback */
     ESP_ERROR_CHECK(esp_lcd_panel_io_register_event_callbacks(io_handle, &cbs, display));
-    ESP_LOGI(SCREEN_TAG, "Create LVGL task");
-
-    xTaskCreate(screen_main_task, "Minimap", LVGL_TASK_STACK_SIZE, NULL, LVGL_TASK_PRIORITY, NULL);
-    // xTaskCreate(screen_campanile_task, "Campanile", LVGL_TASK_STACK_SIZE, NULL, LVGL_TASK_PRIORITY, NULL);
 }
