@@ -11,6 +11,7 @@
 #include "nmea_parser.h"
 #include "screen.h"
 
+
 /* Defines */
 
 #define CAMPANILE_LONGITUDE -122.25777  // campanile longitude (in degrees)
@@ -35,6 +36,9 @@ typedef struct coordinates
     float lat;
     float lon;
 } coordinates_t;
+
+// TODO: MOVE
+extern coordinates_t other;
 
 /* Euclidean Coordinate */
 typedef struct pos
@@ -217,9 +221,9 @@ void display_screen(coordinates_t *curr_pos, coordinates_t *other_pos, int num_o
 void update_screen(lv_display_t *disp, gps_t *global_gps, imu_data_t *global_imu)
 {
     // TODO: unjank
-    if (global_gps->latitude == 0.0 || global_gps->longitude == 0.0) {
-        return;
-    }
+    // if (global_gps->latitude == 0.0 || global_gps->longitude == 0.0) {
+    //     return;
+    // }
 
     coordinates_t curr_pos = {
         global_gps->latitude,
@@ -238,9 +242,10 @@ void update_screen(lv_display_t *disp, gps_t *global_gps, imu_data_t *global_imu
         CAMPANILE_LONGITUDE
     };
     
-    coordinates_t positions_to_plot[1] = {
+    coordinates_t positions_to_plot[2] = {
         cory_hall,
+        other,
     };
 
-    display_screen(&curr_pos, positions_to_plot, 1, curr_heading);
+    display_screen(&curr_pos, positions_to_plot, 2, curr_heading);
 }

@@ -34,6 +34,15 @@ void send_lora_gps();
 
 #define I2C_MASTER_NUM I2C_NUM_0 /* I2C port number for master dev */
 
+/* GPS Coordinate */
+typedef struct coordinates
+{
+    float lat;
+    float lon;
+} coordinates_t;
+
+coordinates_t other;
+
 /* Global variable init */
 imu_data_t global_imu;
 gps_t global_gps;
@@ -96,7 +105,7 @@ static void transform_mag(vector_t *v)
 
 void run_imu(void)
 {
-  i2c_mpu9250_init(&cal_mpu92_65);
+  i2c_mpu9250_init(&cal_mpu9250_6500);
   ahrs_init(SAMPLE_FREQ_Hz, 0.8);
 
   uint64_t i = 0;
@@ -218,6 +227,8 @@ void task_both_gps(void *p)
     send_lora_gps();
     int bytes_read = lora_receive_packet_blocking((uint8_t*)buf, 3 * sizeof(float));
     ESP_LOGI("[LORA_RX_GPS]", "Bytes read: %d, Lat: %0.5f, Long: %0.5f, Altitude: %0.5f", bytes_read, buf[0], buf[1], buf[2]);
+    other.lat = buf[0];
+    other.lon = buf[1];
     vTaskDelay(1);
   }
 }
