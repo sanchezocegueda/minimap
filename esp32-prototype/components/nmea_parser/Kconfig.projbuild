@@ -10,6 +10,14 @@ menu "nmea_parser config"
             GPIO number for UART RX pin. See UART documentation for more information
             about available pin numbers for UART.
 
+    config NMEA_PARSER_UART_TXD
+        int "UART TXD pin number"
+        range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+        default 33
+        help
+            GPIO number for UART TX pin. See UART documentation for more information
+            about available pin numbers for UART.
+
     config NMEA_PARSER_RING_BUFFER_SIZE
         int "NMEA Parser Ring Buffer Size"
         range 0 2048

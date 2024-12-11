@@ -530,6 +530,9 @@ static esp_err_t gps_decode(esp_gps_t *esp_gps, size_t len)
                 /* Check if all statements have been parsed */
                 if (((esp_gps->parsed_statement) & esp_gps->all_statements) == esp_gps->all_statements) {
                     esp_gps->parsed_statement = 0;
+                    // TODO: Buffer dumps are for debugging satellites in range.
+                    // ESP_LOG_BUFFER_HEXDUMP("KNOWN STATEMENT", esp_gps->buffer, len, ESP_LOG_WARN);
+
                     /* Send signal to notify that GPS information has been updated */
                     esp_event_post_to(esp_gps->event_loop_hdl, ESP_NMEA_EVENT, ENCRYPTION_UPDATE,
                                       &(esp_gps->parent), sizeof(gps_t), 100 / portTICK_PERIOD_MS);
@@ -542,6 +545,8 @@ static esp_err_t gps_decode(esp_gps_t *esp_gps, size_t len)
             }
             if (esp_gps->cur_statement == STATEMENT_UNKNOWN) {
                 /* Send signal to notify that one unknown statement has been met */
+
+                // ESP_LOG_BUFFER_HEXDUMP("UNKNOWN STATEMENT", esp_gps->buffer, len, ESP_LOG_ERROR);
                 esp_event_post_to(esp_gps->event_loop_hdl, ESP_NMEA_EVENT, GPS_UNKNOWN,
                                   esp_gps->buffer, len, 100 / portTICK_PERIOD_MS);
             }
@@ -689,7 +694,8 @@ nmea_parser_handle_t nmea_parser_init(const nmea_parser_config_t *config)
         ESP_LOGE(GPS_TAG, "config uart parameter failed");
         goto err_uart_config;
     }
-    if (uart_set_pin(esp_gps->uart_port, UART_PIN_NO_CHANGE, config->uart.rx_pin,
+    // TODO: define 33 as GPS_TX_PIN elsewhere
+    if (uart_set_pin(esp_gps->uart_port, 33, 34,
                      UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE) != ESP_OK) {
         ESP_LOGE(GPS_TAG, "config uart gpio failed");
         goto err_uart_config;
@@ -708,6 +714,13 @@ nmea_parser_handle_t nmea_parser_init(const nmea_parser_config_t *config)
         ESP_LOGE(GPS_TAG, "create event loop faild");
         goto err_eloop;
     }
+    
+    /* TODO: Move to function. Air530 Hardware configuration! */
+    char gps_beidou[] = "$PGKC115,1,0,1,0*2A\r\n";
+    char gps_glonass[] = "$PGKC115,1,1,0,0*2A\r\n";
+    char gps_galileo[] = "$PGKC115,1,0,0,1*2A\r\n";
+    uart_write_bytes(esp_gps->uart_port, gps_glonass, strlen(gps_glonass));
+
     /* Create NMEA Parser task */
     BaseType_t err = xTaskCreate(
                          nmea_parser_task_entry,
