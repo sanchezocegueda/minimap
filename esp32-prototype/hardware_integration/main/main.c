@@ -289,8 +289,10 @@ void app_main()
 
   /* Setup Lora Radio */
   lora_init();
+  /* Move to a configuration function in lora.c along with the end of lora_init */
   lora_set_frequency(915e6);
   lora_enable_crc();
+  /* Set spreading factor, bandwidth, sync word, implicit header mode (and all that follows)*/
 
   nmea_parser_add_handler(nmea_hdl, update_global_gps, NULL, SCREEN_UPDATE);
 

@@ -389,10 +389,14 @@ lora_init(void)
     * Default configuration.
     */
    lora_sleep();
+   /* Reset FIFO base pointers. */
    lora_write_reg(REG_FIFO_RX_BASE_ADDR, 0);
    lora_write_reg(REG_FIFO_TX_BASE_ADDR, 0);
+   /* Set bits 0:1 in LnaBoostHf to adjust LNA current for PA_BOOST. */
    lora_write_reg(REG_LNA, lora_read_reg(REG_LNA) | 0x03);
+   /* Set LowDataRateOptimize to increase robustness of the LoRa link at low data rates. */
    lora_write_reg(REG_MODEM_CONFIG_3, 0x04);
+   /* See page 79 of HOPERF manual. For now 17dBm is the max, we must configure the radio for 20dBm (shouldn't be too bad) */
    lora_set_tx_power(17);
 
    lora_idle();
