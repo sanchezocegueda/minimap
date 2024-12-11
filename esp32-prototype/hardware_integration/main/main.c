@@ -96,7 +96,7 @@ static void transform_mag(vector_t *v)
 
 void run_imu(void)
 {
-  i2c_mpu9250_init(&cal_mpu9250_6500);
+  i2c_mpu9250_init(&cal_mpu92_65);
   ahrs_init(SAMPLE_FREQ_Hz, 0.8);
 
   uint64_t i = 0;
