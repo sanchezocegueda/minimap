@@ -152,6 +152,35 @@ void draw_bubble(pos_t * position, char *label)
 }
 
 /**
+ * @brief Draw indicator pointing toward north
+ */
+void draw_north_indicator(float heading_angle) {
+
+    float angle = deg_to_rad(-heading_angle);
+    float x = cosf(angle) * MAX_DISPLAY_RADIUS;
+    float y = sinf(angle) * MAX_DISPLAY_RADIUS;
+
+    /* Initialize style for the bubble */
+    static lv_style_t style_bubble;
+    lv_style_init(&style_bubble);
+    lv_style_set_radius(&style_bubble, 10); // Set the radius for rounded corners
+    lv_style_set_bg_opa(&style_bubble, LV_OPA_COVER);
+    lv_style_set_bg_color(&style_bubble, lv_color_hex(0xFF8888));
+
+    /* Create bubble object */
+    lv_obj_t *bubble_obj = lv_obj_create(lv_scr_act()); // Add to the active screen
+    lv_obj_set_size(bubble_obj, 10, 10);               // Set size of the bubble
+    lv_obj_add_style(bubble_obj, &style_bubble, 0);    // Add the style to the bubble
+    lv_obj_align(bubble_obj, LV_ALIGN_CENTER, x, y); // Align the bubble
+
+    /* Create label object */
+    lv_obj_t *label_obj = lv_label_create(lv_scr_act()); // Add label to the active screen
+    lv_label_set_text_fmt(label_obj, "%.0f °", heading_angle);                // Set the label text
+    lv_obj_set_style_text_color(label_obj, lv_color_hex(0xFFFFFF), LV_PART_MAIN); // Set text color
+    lv_obj_align_to(label_obj, bubble_obj, LV_ALIGN_OUT_BOTTOM_MID, 0, 10); // Align the label to bubble
+}
+
+/**
  * @brief Displays every GPS point-of-interest on the screen.
  * @param curr_pos Current user GPS position
  * @param other_pos Array of other points of interest
@@ -167,6 +196,9 @@ void display_screen(coordinates_t *curr_pos, coordinates_t *other_pos, int num_o
     char our_label[32];
     sprintf(our_label, "%.5f °N\n%.5f °E", curr_pos->lat, curr_pos->lon);
     draw_bubble(&origin, our_label);
+
+    // TODO: Appears to be 90 degrees off for some reason? Needs debugging
+    draw_north_indicator(offset_angle);
     
     for (int i = 0; i < num_other; i++)
     {
