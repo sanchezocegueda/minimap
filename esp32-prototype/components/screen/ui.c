@@ -18,7 +18,8 @@
 #define SATHERGATE_LONGITUDE -122.25947 // sather gate longitude (in degrees)
 #define SATHERGATE_LATITUDE 37.8702180  // sather gate latitude (in degrees)
 #define EARTH_RADIUS_M 6371000.0        // earth's radius in meters
-#define SCREEN_RADIUS 90                // 100
+#define MAX_DISPLAY_RADIUS 100
+#define MIN_DISPLAY_RADIUS 20
 #define SCREEN_SCALE 2
 
 /* NOTE: y values are flipped on the screen. */
@@ -114,7 +115,7 @@ void transform_to_screen(pos_t* pos, float heading_angle)
     r *= SCREEN_SCALE;
 
     /* Clamp to screen edge */
-    r = r > SCREEN_RADIUS ? SCREEN_RADIUS : r;
+    r = fmaxf(fminf(r, MAX_DISPLAY_RADIUS), MIN_DISPLAY_RADIUS);
 
     /* Apply rotation */
     pos->x = r * cos(theta);
