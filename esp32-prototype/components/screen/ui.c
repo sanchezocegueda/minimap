@@ -130,27 +130,25 @@ void transform_to_screen(pos_t* pos, float heading_angle)
  */
 void draw_bubble(pos_t * position, char *label)
 {
-    /* Set bubble styling */
+    /* Initialize style for the bubble */
     static lv_style_t style_bubble;
     lv_style_init(&style_bubble);
-    lv_style_set_radius(&style_bubble, 20);
-    lv_style_set_size(&style_bubble, 20, 20);
+    lv_style_set_radius(&style_bubble, 20); // Set the radius for rounded corners
     lv_style_set_bg_opa(&style_bubble, LV_OPA_COVER);
     lv_style_set_bg_color(&style_bubble, lv_color_hex(0x23CEF1));
 
     /* Create bubble object */
-    lv_obj_t *bubble_obj = lv_obj_create(lv_screen_active());
-    lv_obj_align(bubble_obj, LV_ALIGN_CENTER, position->x, position->y);
-    lv_obj_add_style(bubble_obj, &style_bubble, 0);
-    lv_obj_set_style_radius(bubble_obj, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_size(bubble_obj, 20, 20);
+    lv_obj_t *bubble_obj = lv_obj_create(lv_scr_act()); // Add to the active screen
+    lv_obj_set_size(bubble_obj, 20, 20);               // Set size of the bubble
+    lv_obj_add_style(bubble_obj, &style_bubble, 0);    // Add the style to the bubble
+    lv_obj_align(bubble_obj, LV_ALIGN_CENTER, position->x, position->y); // Align the bubble
 
     /* Create label object */
-    lv_obj_t *label_obj = lv_label_create(lv_screen_active());
-    lv_label_set_text(label_obj, label);
-    lv_obj_set_size(label_obj, 60, 30);
-    lv_obj_set_style_text_color(label_obj, lv_color_hex(0xffffff), LV_PART_MAIN);
-    lv_obj_align_to(label_obj, bubble_obj, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
+    lv_obj_t *label_obj = lv_label_create(lv_scr_act()); // Add label to the active screen
+    lv_label_set_text(label_obj, label);                // Set the label text
+    lv_obj_set_style_text_color(label_obj, lv_color_hex(0xFFFFFF), LV_PART_MAIN); // Set text color
+    lv_obj_align_to(label_obj, bubble_obj, LV_ALIGN_OUT_BOTTOM_MID, 0, 10); // Align the label to bubble
+
 }
 
 /**
@@ -166,17 +164,18 @@ void display_screen(coordinates_t *curr_pos, coordinates_t *other_pos, int num_o
     lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x020C0E), LV_PART_MAIN);
     
     pos_t origin = {0, 0};
-    draw_bubble(&origin, "you");
+    char our_label[32];
+    sprintf(our_label, "%.5f °N\n%.5f °E", curr_pos->lat, curr_pos->lon);
+    draw_bubble(&origin, our_label);
     
     for (int i = 0; i < num_other; i++)
     {
         pos_t relative_pos = get_relative_pos(curr_pos, &other_pos[i]);
-        ESP_LOGI("[ALEX DEMO]", "X_ofs: %f, y_ofs %f", relative_pos.x, relative_pos.y);
-
+        float dist = l2_dist(&relative_pos);
         transform_to_screen(&relative_pos, offset_angle); //updates in place
         
         char label[16];
-        sprintf(label, "Fren %d", i + 1);
+        sprintf(label, "%.1f m", dist);
         draw_bubble(&relative_pos, label);
     }
 }
