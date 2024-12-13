@@ -65,8 +65,10 @@ typedef struct imu_data {
 typedef struct screen_task_params {
     imu_data_t* global_imu;
     nmea_parser_handle_t nmea_hndl;
+    QueueHandle_t* screen_lora_event_queue;
 } screen_task_params_t;
 
-void render_counter(void);
+// Verbose naming for now just to describe it
+void render_counter(QueueHandle_t* screen_lora_event_queue);
 
 #endif

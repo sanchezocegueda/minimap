@@ -38,8 +38,8 @@
 
 // TODO: MOVE
 extern coordinates_t other;
-extern QueueHandle_t counter_event_queue;
 
+// TODO: MOVE?
 /* Euclidean Coordinate */
 typedef struct pos {
   float x;
@@ -82,8 +82,7 @@ pos_t get_relative_pos(coordinates_t *coords1, coordinates_t *coords2) {
   /* Calculate x and y components
      x is East-West (longitude difference)
      y is North-South (latitude difference) */
-  float x_dist =
-      EARTH_RADIUS_M * (lon2_rad - lon1_rad) * cos((lat1_rad + lat2_rad) / 2);
+  float x_dist = EARTH_RADIUS_M * (lon2_rad - lon1_rad) * cos((lat1_rad + lat2_rad) / 2);
   float y_dist = EARTH_RADIUS_M * (lat2_rad - lat1_rad);
 
   pos_t dist_relative = {x_dist, y_dist};
@@ -138,17 +137,14 @@ void draw_bubble(pos_t *position, char *label) {
       lv_obj_create(lv_scr_act());                // Add to the active screen
   lv_obj_set_size(bubble_obj, 20, 20);            // Set size of the bubble
   lv_obj_add_style(bubble_obj, &style_bubble, 0); // Add the style to the bubble
-  lv_obj_align(bubble_obj, LV_ALIGN_CENTER, position->x,
-               position->y); // Align the bubble
+  lv_obj_align(bubble_obj, LV_ALIGN_CENTER, position->x, position->y); // Align the bubble
 
   /* Create label object */
   lv_obj_t *label_obj =
       lv_label_create(lv_scr_act());   // Add label to the active screen
   lv_label_set_text(label_obj, label); // Set the label text
-  lv_obj_set_style_text_color(label_obj, lv_color_hex(0xFFFFFF),
-                              LV_PART_MAIN); // Set text color
-  lv_obj_align_to(label_obj, bubble_obj, LV_ALIGN_OUT_BOTTOM_MID, 0,
-                  10); // Align the label to bubble
+  lv_obj_set_style_text_color(label_obj, lv_color_hex(0xFFFFFF), LV_PART_MAIN); // Set text color
+  lv_obj_align_to(label_obj, bubble_obj, LV_ALIGN_OUT_BOTTOM_MID, 0, 10); // Align the label to bubble
 }
 
 /**
@@ -244,10 +240,10 @@ void update_screen(lv_display_t *disp, nmea_parser_handle_t nmea_hndl,
   display_screen(&curr_pos, positions_to_plot, 2, curr_heading);
 }
 
-void render_counter() {
+void render_counter(QueueHandle_t* screen_lora_event_queue) {
 
   int receivedValue;
-  if (xQueueReceive(counter_event_queue, &receivedValue, portMAX_DELAY) == pdPASS) {
+  if (xQueueReceive(*screen_lora_event_queue, &receivedValue, portMAX_DELAY) == pdPASS) {
     pos_t origin = {0, 0};
     char our_label[32];
     ESP_LOGI("QUEUE READ", "Value from queue %d", receivedValue);

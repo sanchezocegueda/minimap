@@ -59,8 +59,8 @@ calibration_t cal_mpu9250_6500 = {
     .accel_scale_lo = {.x = 1.016573, .y = 1.025387, .z = 1.041263},
     .accel_scale_hi = {.x = -0.984251, .y = -0.977627, .z = -0.985206}};
 
-
-
+/* Global calibration variable */
+calibration_t *cal = &cal_mpu92_65;
 
 /**
  * Transformation:
@@ -80,7 +80,6 @@ static void transform_accel_gyro(vector_t *v)
   v->z = -z;
 }
 
-
 // TODO: technically not needed if we aren't changing the mag axes
 /**
  * Transformation: to get magnetometer aligned
@@ -98,10 +97,9 @@ static void transform_mag(vector_t *v)
   v->z = z;
 }
 
-
 void run_imu(void)
 {
-  i2c_mpu9250_init(&cal_mpu9250_6500);
+  i2c_mpu9250_init(cal);
   ahrs_init(SAMPLE_FREQ_Hz, 0.8);
 
   uint64_t i = 0;
@@ -144,7 +142,6 @@ void run_imu(void)
   }
 }
 
-
 static void imu_task(void *arg)
 {
 #ifdef CONFIG_CALIBRATION_MODE
@@ -162,44 +159,48 @@ static void imu_task(void *arg)
   vTaskDelete(NULL);
 }
 
-
 /* Basic transmit task to send a counter every 2.5 seconds */
 void task_tx(void *p)
 {
-   static uint32_t counter = 0;
-   ESP_LOGI("[TX]", "Starting");
-   for(;;) {
-      counter = rand();
-      lora_send_packet((uint8_t*)&counter, 4);
-      ESP_LOGI("[TX]", "counter: %ld", counter);
-      xQueueSend(counter_event_queue, &counter, portMAX_DELAY);
+  ESP_LOGI("[TX]", "started");
+  QueueHandle_t *screen_lora_event_queue = (QueueHandle_t *)p;
+  static uint32_t counter = 0;
+  for (;;)
+  {
+    // counter = rand(); I think the counter should be strictly increasing so we know if we missed a transmission
+    lora_send_packet((uint8_t *)&counter, 4);
+    ESP_LOGI("[TX]", "counter: %ld", counter);
+    xQueueSend(*screen_lora_event_queue, &counter, portMAX_DELAY);
 
-      vTaskDelay(pdMS_TO_TICKS(10000));
-   }
+    vTaskDelay(pdMS_TO_TICKS(10000));
+  }
 }
-
 
 /* Basic receive task to turn radio into receive mode and block until data is received */
 void task_rx(void *p)
 {
-   uint8_t buf[4];
-   int x;
-   for(;;) {
-      lora_receive();
-      while(lora_received()) {
-        x = lora_receive_packet(buf, sizeof(buf));
-        ESP_LOGI("[RX]", "%d bytes, counter: %ld", x, (uint32_t) buf[0]);
-        xQueueSend(counter_event_queue, buf, portMAX_DELAY);
-      }
-      vTaskDelay(1);
-   }
-
+  ESP_LOGI("[RX]", "started");
+  QueueHandle_t *screen_lora_event_queue = (QueueHandle_t *)p;
+  uint8_t buf[4];
+  int x;
+  for (;;)
+  {
+    lora_receive();
+    while (lora_received())
+    {
+      x = lora_receive_packet(buf, sizeof(buf));
+      ESP_LOGI("[RX]", "%d bytes, counter: %ld", x, (uint32_t)buf[0]);
+      xQueueSend(*screen_lora_event_queue, buf, portMAX_DELAY);
+    }
+    vTaskDelay(1);
+  }
 }
 
 /* Task to send a counter and listen for a counter periodically*/
 void task_both(void *p)
 {
-  ESP_LOGI("[task both]", "started");
+  ESP_LOGI("[task_both]", "started");
+  QueueHandle_t *screen_lora_event_queue = (QueueHandle_t *)p;
   static uint32_t counter = 0;
   uint8_t buf[4];
   int bytes_read;
@@ -209,7 +210,7 @@ void task_both(void *p)
     ESP_LOGI("[TX]", "counter: %ld", counter);
     bytes_read = lora_receive_packet_blocking(buf, sizeof(buf));
 
-    ESP_LOGI("[RX]", "%d bytes, counter: %ld", bytes_read, *((uint32_t*)buf));
+    ESP_LOGI("[RX]", "%d bytes, counter: %ld", bytes_read, *((uint32_t *)buf));
     counter++;
     vTaskDelay(1);
   }
@@ -224,41 +225,59 @@ void task_both_gps(void *p)
   for (;;)
   {
     send_lora_gps(nmea_hndl);
-    int bytes_read = lora_receive_packet_blocking((uint8_t*)&buf, sizeof(coordinates_t));
+    int bytes_read = lora_receive_packet_blocking((uint8_t *)&buf, sizeof(coordinates_t));
     ESP_LOGI("[LORA_RX_GPS]", "Bytes read: %d, Lat: %0.5f, Long: %0.5f", bytes_read, buf.lat, buf.lon);
     other = buf;
     vTaskDelay(1);
   }
 }
 
-
 /**
  * @brief Format latitude, longitude and send via lora
  * @param nmea_hndl returned from nmea_parser_init
  * */
-void send_lora_gps(nmea_parser_handle_t nmea_hndl) {
+void send_lora_gps(nmea_parser_handle_t nmea_hndl)
+{
   coordinates_t buf = read_gps(nmea_hndl);
-   // TODO: encryption 
-   
-   lora_send_packet_blocking((uint8_t*)&buf, sizeof(coordinates_t));
-   ESP_LOGI("[LORA_TX_GPS]", "Lat: %0.5f, Long: %0.5f", buf.lat, buf.lon);
-}
+  // TODO: encryption
 
+  lora_send_packet_blocking((uint8_t *)&buf, sizeof(coordinates_t));
+  ESP_LOGI("[LORA_TX_GPS]", "Lat: %0.5f, Long: %0.5f", buf.lat, buf.lon);
+}
 
 /* Task for receiving GPS over lora */
-void receive_lora_gps(void*) {
-   coordinates_t buf;
-   for (;;) {
-      lora_receive();
-      while(lora_received()) {
-        int bytes_read = lora_receive_packet((uint8_t*)&buf, sizeof(coordinates_t));
-        ESP_LOGI("[LORA_RX_GPS]", "Bytes read: %d, Lat: %0.5f, Long: %0.5f", bytes_read, buf.lat, buf.lon);
-      }
-      vTaskDelay(1);
-   }
+void receive_lora_gps(void *)
+{
+  coordinates_t buf;
+  for (;;)
+  {
+    lora_receive();
+    while (lora_received())
+    {
+      int bytes_read = lora_receive_packet((uint8_t *)&buf, sizeof(coordinates_t));
+      ESP_LOGI("[LORA_RX_GPS]", "Bytes read: %d, Lat: %0.5f, Long: %0.5f", bytes_read, buf.lat, buf.lon);
+    }
+    vTaskDelay(1);
+  }
 }
 
-/* Testing encryption */
+/* Main RTOS Lora task that does hardware initialization. */
+void lora_task(void *pvParam)
+{
+  QueueHandle_t *screen_lora_event_queue = (QueueHandle_t *)pvParam;
+  /* Setup Lora Radio */
+  lora_init();
+  /* Move to a configuration function in lora.c along with the end of lora_init */
+  lora_set_frequency(915e6);
+  lora_enable_crc();
+  /* Set spreading factor, bandwidth, sync word, implicit header mode (and all that follows)*/
+
+  /* Start an actual task for the radio... */
+  task_rx(screen_lora_event_queue);
+  // task_tx(screen_lora_event_queue);
+  // task_both_gps(screen_lora_event_queue);
+  // task_lora_rx(screen_lora_event_queue);
+}
 
 void app_main()
 {
@@ -272,28 +291,21 @@ void app_main()
   /* Setup buttons */
   button_handle_t left_btn, right_btn;
   init_buttons(&left_btn, &right_btn, &button_event_queue);
-  counter_event_queue = xQueueCreate(5, sizeof(int));
 
+  /* Register default debugging callback functions. */
   iot_button_register_cb(left_btn, BUTTON_PRESS_DOWN, left_cb, NULL);
   iot_button_register_cb(right_btn, BUTTON_PRESS_DOWN, right_cb, NULL);
 
-  /* Setup Lora Radio */
-  lora_init();
-  /* Move to a configuration function in lora.c along with the end of lora_init */
-  lora_set_frequency(915e6);
-  lora_enable_crc();
-  /* Set spreading factor, bandwidth, sync word, implicit header mode (and all that follows)*/
+  /* Malloc screen parameters for GPS data, counter data, imu data, and pass to lora task and screen task.
+  Currently, this freed when screen_main_task cleans itself up (after the infinite loop) */
 
-  // xTaskCreate(&task_tx, "task_tx", 4096, NULL, 5, NULL);
-   xTaskCreate(&task_rx, "task_rx", 4096, NULL, 5, NULL);
-  // xTaskCreate(&task_both_gps, "task_both", 4096, NULL, 5, NULL);
-  // xTaskCreate(&receive_lora_gps, "task_lora_rx", 2048, NULL, 5, NULL);
-
-  // test_encryption();
+  /* tbh idk if storing all this on the heap is really cleaner than just using static memory...  but, I feel like it's not that bad */
   screen_task_params_t *screen_params = malloc(sizeof(screen_task_params_t));
+  *screen_params->screen_lora_event_queue = xQueueCreate(5, sizeof(int));
+  /* TODO: Cleanup global_imu... Make a thread_safe ds similar to gps_t in nmea_parser.c */
   screen_params->global_imu = &global_imu;
   screen_params->nmea_hndl = nmea_hndl;
 
+  xTaskCreate(&lora_task, "lora_task", 4096, screen_params->screen_lora_event_queue, 5, NULL);
   xTaskCreate(screen_main_task, "Minimap", LVGL_TASK_STACK_SIZE, screen_params, LVGL_TASK_PRIORITY, NULL);
-
 }

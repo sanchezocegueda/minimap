@@ -67,34 +67,49 @@ static void increase_lvgl_tick(void *arg)
     lv_tick_inc(LVGL_TICK_PERIOD_MS);
 }
 
-/* The actual code that loops and updates the screen */
+/* The actual code that loops and updates the screen.
+/==================================================================================================
+PLS try not to clutter this example.  This should be our most up to date V0 code,
+but for now it's fine to leave render_counter in here.
+/==================================================================================================
+ */
 void screen_main_task(void *arg)
 {
     screen_task_params_t* args = (screen_task_params_t*)arg;
     nmea_parser_handle_t nmea_hndl = args->nmea_hndl;
     imu_data_t* global_imu = args->global_imu;
+    QueueHandle_t* screen_lora_event_queue = args->screen_lora_event_queue;
     start_screen();
     ESP_LOGI(SCREEN_TAG, "Starting LVGL task");
     uint32_t time_till_next_ms = 0;
     uint32_t time_threshold_ms = 1000 / CONFIG_FREERTOS_HZ;
     while (1) {
-            // Lock the mutex due to the LVGL APIs are not thread-safe
+        // Lock the mutex due to the LVGL APIs are not thread-safe
         _lock_acquire(&lvgl_api_lock);
+        /* Draw the background. */
         lv_obj_clean(lv_screen_active());
-        lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x020C0E),
-                            LV_PART_MAIN);
+        lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x020C0E), LV_PART_MAIN);
+
+        /* Call some UI function or react on some logic ... */
         // update_screen(display, nmea_hndl, global_imu);
         
-        render_counter();
+        render_counter(screen_lora_event_queue);
+
         // varun_ui(display);
+
+
         time_till_next_ms = lv_timer_handler();
         _lock_release(&lvgl_api_lock);
         // in case of triggering a task watch dog time out
         time_till_next_ms = MAX(time_till_next_ms, time_threshold_ms);
         usleep(1000 * time_till_next_ms);
     }
+    /* TODO: This should work, but for some reason it doesn't comment it out.
+    Free screen_task_params that were passed to us. */
+    free(arg);
 }
 
+/* Feel free to modify this to create a totally seperate screen rendering function. */
 static void screen_campanile_task(void *arg)
 {
     screen_task_params_t* args = (screen_task_params_t*)arg;
@@ -116,6 +131,7 @@ static void screen_campanile_task(void *arg)
     }
 }
 
+/* Setup SPI for screen, initialize ESP LCD and LVGL. No rendering is done. */
 void start_screen(void) {
     ESP_LOGI(SCREEN_TAG, "Initialize SPI bus");
     spi_bus_config_t buscfg = {
