@@ -1,35 +1,13 @@
-#include "core/lv_obj_style.h"
-#include "display/lv_display.h"
-#include "esp_log.h"
-#include "lvgl.h"
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-
-
-#include <freertos/FreeRTOS.h>
-#include <freertos/queue.h>
-#include <freertos/task.h>
-#include <stdio.h>
-
-
-// GPS additions
-// TODO: Move to ui.h
-#include "nmea_parser.h"
-#include "screen.h"
+#include "ui_utils.h"
+/* NOTE: y values are flipped on the screen. */
 
 /* Defines */
-
 #define CAMPANILE_LONGITUDE -122.25777  // campanile longitude (in degrees)
 #define CAMPANILE_LATITUDE 37.87194     // campanile latitude (in degrees)
 #define SATHERGATE_LONGITUDE -122.25947 // sather gate longitude (in degrees)
 #define SATHERGATE_LATITUDE 37.8702180  // sather gate latitude (in degrees)
 #define EARTH_RADIUS_M 6371000.0        // earth's radius in meters
-#define MAX_DISPLAY_RADIUS 100
-#define MIN_DISPLAY_RADIUS 20
-#define SCREEN_SCALE 2
 
-/* NOTE: y values are flipped on the screen. */
 
 /* GPS Data from right outside cory doors. */
 #define CORY_DOORS_LONGITUDE -122.25798
@@ -38,13 +16,7 @@
 
 // TODO: MOVE
 extern coordinates_t other;
-
-// TODO: MOVE?
-/* Euclidean Coordinate */
-typedef struct pos {
-  float x;
-  float y;
-} pos_t;
+const char* SCREEN_TAG = "[SCREEN]";
 
 /* Get distance from origin */
 float l2_dist(pos_t *pos) {
@@ -246,8 +218,121 @@ void render_counter(QueueHandle_t* screen_lora_event_queue) {
   if (xQueueReceive(*screen_lora_event_queue, &receivedValue, portMAX_DELAY) == pdPASS) {
     pos_t origin = {0, 0};
     static char our_label[32];
-    ESP_LOGI("QUEUE READ", "Value from queue %d", receivedValue.counter_val);
-    sprintf(our_label, "Received: %d", receivedValue.counter_val);
+    if (receivedValue.tx_rx == 0) {
+      // transmitter
+      ESP_LOGI("QUEUE READ", "Value from queue %d", receivedValue.counter_val);
+      sprintf(our_label, "Sending: %d", receivedValue.counter_val);
+    } else {
+      // receiver
+      ESP_LOGI("QUEUE READ", "Value from queue %d", receivedValue.counter_val);
+      sprintf(our_label, "Receiving: %d", receivedValue.counter_val);
+    }
     draw_bubble(&origin, our_label);
   }
+}
+
+/* Clears the screen, and displays TEXT in the middle of the screen for SECONDS
+    max size is ~32, I think */
+void display_text(char* text) 
+{
+  clear_screen();
+  
+  pos_t origin = {0, 0};
+  draw_bubble(&origin, text);
+}
+
+/* Clears the screen */
+void clear_screen(void) 
+{
+  lv_obj_clean(lv_screen_active());
+  lv_obj_set_style_bg_color(lv_screen_active(), 
+                          lv_color_hex(0x020C0E),
+                          LV_PART_MAIN);
+}
+
+
+// Note: you need to manually clear the screen for these functions to work.
+void display_line_0(char* text) 
+{
+  pos_t line0 = {0, 75};
+  draw_bubble(&line0, text);
+}
+void display_line_1(char* text) 
+{
+  pos_t line1 = {0, 25};
+  draw_bubble(&line1, text);
+}
+void display_line_2(char* text) 
+{
+  pos_t line2 = {0, -25};
+  draw_bubble(&line2, text);
+}
+void display_line_3(char* text) 
+{
+  pos_t line3 = {0, -75};
+  draw_bubble(&line3, text);
+}
+
+/* The actual code that loops and updates the screen.
+/==================================================================================================
+PLS try not to clutter this example.  This should be our most up to date V0 code,
+but for now it's fine to leave render_counter in here.
+/==================================================================================================
+ */
+void screen_main_task(void *arg)
+{
+    screen_task_params_t* args = (screen_task_params_t*)arg;
+    nmea_parser_handle_t nmea_hndl = args->nmea_hndl;
+    imu_data_t* global_imu = args->global_imu;
+    QueueHandle_t* screen_lora_event_queue = args->screen_lora_event_queue;
+    start_screen();
+    ESP_LOGI(SCREEN_TAG, "Starting LVGL task");
+    uint32_t time_till_next_ms = 0;
+    uint32_t time_threshold_ms = 1000 / CONFIG_FREERTOS_HZ;
+    while (1) {
+        // Lock the mutex due to the LVGL APIs are not thread-safe
+        _lock_acquire(&lvgl_api_lock);
+        /* Draw the background. */
+        lv_obj_clean(lv_screen_active());
+        lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x020C0E), LV_PART_MAIN);
+
+        /* Call some UI function or react on some logic ... */
+        // update_screen(display, nmea_hndl, global_imu);
+        
+        render_counter(screen_lora_event_queue);
+
+        // varun_ui(display);
+
+
+        time_till_next_ms = lv_timer_handler();
+        _lock_release(&lvgl_api_lock);
+        // in case of triggering a task watch dog time out
+        time_till_next_ms = MAX(time_till_next_ms, time_threshold_ms);
+        usleep(1000 * time_till_next_ms);
+    }
+    /* TODO: This should work, but for some reason it doesn't comment it out.
+    Free screen_task_params that were passed to us. */
+    free(arg);
+}
+
+/* Feel free to modify this to create a totally separate screen rendering function. */
+void screen_campanile_task(void *arg)
+{
+    screen_task_params_t* args = (screen_task_params_t*)arg;
+    nmea_parser_handle_t nmea_hndl = args->nmea_hndl;
+    imu_data_t* global_imu = args->global_imu;
+    start_screen();
+    ESP_LOGI(SCREEN_TAG, "Starting Campanile task");
+    uint32_t time_till_next_ms = 0;
+    uint32_t time_threshold_ms = 1000 / CONFIG_FREERTOS_HZ;
+    while (1) {
+        // Lock the mutex due to the LVGL APIs are not thread-safe
+        _lock_acquire(&lvgl_api_lock);
+        update_screen(display, nmea_hndl, global_imu);
+        time_till_next_ms = lv_timer_handler();
+        _lock_release(&lvgl_api_lock);
+        // in case of triggering a task watch dog time out
+        time_till_next_ms = MAX(time_till_next_ms, time_threshold_ms);
+        usleep(1000 * time_till_next_ms);
+    }
 }

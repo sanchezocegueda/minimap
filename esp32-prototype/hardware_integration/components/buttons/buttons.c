@@ -1,23 +1,19 @@
 #include "buttons.h"
 
-typedef enum {
-    LEFT_PRESS,
-    RIGHT_PRESS,
-} minimap_button_event_t;
-
+QueueHandle_t *event_queue_ptr;
 
 /* You could also pass data into USR_DATA with iot_button_register_cb */
 void left_cb(void* arg, void *usr_data)
 {
     minimap_button_event_t val = LEFT_PRESS;
-    xQueueSendToFront(button_event_queue, &val, portMAX_DELAY);
+    xQueueSendToFront(*event_queue_ptr, &val, portMAX_DELAY);
 }
 
 
 void right_cb(void* arg, void *usr_data)
 {
     minimap_button_event_t val = RIGHT_PRESS;
-    xQueueSendToFront(button_event_queue, &val, portMAX_DELAY);
+    xQueueSendToFront(*event_queue_ptr, &val, portMAX_DELAY);
 }
 
 
@@ -27,7 +23,7 @@ void button_listener(void* arg)
 {
     uint32_t event;
     for (;;) {
-        if (xQueueReceive(button_event_queue, &event, portMAX_DELAY)) {
+        if (xQueueReceive(*event_queue_ptr, &event, portMAX_DELAY)) {
             if (event == LEFT_PRESS) {
                 ESP_LOGI("[BUTTON]", "Left button pressed!");
             } else if (event == RIGHT_PRESS) {
@@ -35,6 +31,7 @@ void button_listener(void* arg)
             }
         }
     }
+    free(event_queue_ptr);
 }
 
 /* Create an IDF, GPIO button attached to GPIO_PIN. */
@@ -65,5 +62,7 @@ void init_buttons(button_handle_t *left, button_handle_t *right, QueueHandle_t *
     *left = init_btn(LEFT_BUTTON_PIN);
     *right = init_btn(RIGHT_BUTTON_PIN);
     *button_event_queue = xQueueCreate(16, sizeof(minimap_button_event_t));
+    event_queue_ptr = button_event_queue;
     xTaskCreate(button_listener, "button listener", 2048, NULL, 10, NULL);
+    ESP_LOGI("BUTTON INIT DONE", "");
 }

@@ -50,30 +50,15 @@
 #define LVGL_TASK_STACK_SIZE   (4 * 1024)
 #define LVGL_TASK_PRIORITY     2
 
+
 void start_screen(void);
-void screen_main_task(void(*));
 
-// TODO: Move to ui.h
-#include "nmea_parser.h"
-typedef struct imu_data {
-    float heading;
-    float roll;
-    float pitch;
-} imu_data_t;
+void increase_lvgl_tick(void *arg);
 
-typedef struct lora_packet {
-  bool tx_rx;      // 0 for tx, 1 for rx
-  int counter_val; // self-explanatory
-} lora_packet_t;
+void lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map);
 
-/* pvParameter for app_main to pass to xCreateTask for the screen */
-typedef struct screen_task_params {
-    imu_data_t* global_imu;
-    nmea_parser_handle_t nmea_hndl;
-    QueueHandle_t* screen_lora_event_queue;
-} screen_task_params_t;
+void rotate_esp_lcd(lv_display_t *disp);
 
-// Verbose naming for now just to describe it
-void render_counter(QueueHandle_t* screen_lora_event_queue);
+bool notify_lvgl_flush_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx);
 
 #endif

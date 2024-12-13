@@ -1,20 +1,11 @@
 #include "screen.h"
 
 static const char *SCREEN_TAG = "[SCREEN]";
-
-// LVGL library is not thread-safe, this example will call LVGL APIs from different tasks, so use a mutex to protect it
-static _lock_t lvgl_api_lock;
-static lv_disp_t * display;
-
-
-/* This is what actually draws stuff on the screen */
-extern void update_screen(lv_disp_t *disp, gps_t* global_gps, imu_data_t* global_imu);
-
-extern void varun_ui(lv_disp_t *disp);
-
+lv_disp_t * display;
+_lock_t lvgl_api_lock;
 
 /* TODO: Understand more */
-static bool notify_lvgl_flush_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
+bool notify_lvgl_flush_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
 {
     lv_display_t *disp = (lv_display_t *)user_ctx;
     lv_display_flush_ready(disp);
@@ -22,7 +13,7 @@ static bool notify_lvgl_flush_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_
 }
 
 /* Rotates the esp_lcd object to match the lvgl rotation. */
-static void rotate_esp_lcd(lv_display_t *disp)
+void rotate_esp_lcd(lv_display_t *disp)
 {
     esp_lcd_panel_handle_t panel_handle = lv_display_get_user_data(disp);
     lv_display_rotation_t rotation = lv_display_get_rotation(disp);
@@ -47,7 +38,7 @@ static void rotate_esp_lcd(lv_display_t *disp)
 }
 
 /* TODO: Understand lvgl flush cb purpose in LVGL */
-static void lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
+void lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
 {
     rotate_esp_lcd(disp);
     esp_lcd_panel_handle_t panel_handle = lv_display_get_user_data(disp);
@@ -61,74 +52,10 @@ static void lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px
     esp_lcd_panel_draw_bitmap(panel_handle, offsetx1, offsety1, offsetx2 + 1, offsety2 + 1, px_map);
 }
 
-static void increase_lvgl_tick(void *arg)
+void increase_lvgl_tick(void *arg)
 {
     /* Tell LVGL how many milliseconds has elapsed */
     lv_tick_inc(LVGL_TICK_PERIOD_MS);
-}
-
-/* The actual code that loops and updates the screen.
-/==================================================================================================
-PLS try not to clutter this example.  This should be our most up to date V0 code,
-but for now it's fine to leave render_counter in here.
-/==================================================================================================
- */
-void screen_main_task(void *arg)
-{
-    screen_task_params_t* args = (screen_task_params_t*)arg;
-    nmea_parser_handle_t nmea_hndl = args->nmea_hndl;
-    imu_data_t* global_imu = args->global_imu;
-    QueueHandle_t* screen_lora_event_queue = args->screen_lora_event_queue;
-    start_screen();
-    ESP_LOGI(SCREEN_TAG, "Starting LVGL task");
-    uint32_t time_till_next_ms = 0;
-    uint32_t time_threshold_ms = 1000 / CONFIG_FREERTOS_HZ;
-    while (1) {
-        // Lock the mutex due to the LVGL APIs are not thread-safe
-        _lock_acquire(&lvgl_api_lock);
-        /* Draw the background. */
-        lv_obj_clean(lv_screen_active());
-        lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x020C0E), LV_PART_MAIN);
-
-        /* Call some UI function or react on some logic ... */
-        // update_screen(display, nmea_hndl, global_imu);
-        
-        render_counter(screen_lora_event_queue);
-
-        // varun_ui(display);
-
-
-        time_till_next_ms = lv_timer_handler();
-        _lock_release(&lvgl_api_lock);
-        // in case of triggering a task watch dog time out
-        time_till_next_ms = MAX(time_till_next_ms, time_threshold_ms);
-        usleep(1000 * time_till_next_ms);
-    }
-    /* TODO: This should work, but for some reason it doesn't comment it out.
-    Free screen_task_params that were passed to us. */
-    free(arg);
-}
-
-/* Feel free to modify this to create a totally seperate screen rendering function. */
-static void screen_campanile_task(void *arg)
-{
-    screen_task_params_t* args = (screen_task_params_t*)arg;
-    nmea_parser_handle_t nmea_hndl = args->nmea_hndl;
-    imu_data_t* global_imu = args->global_imu;
-    start_screen();
-    ESP_LOGI(SCREEN_TAG, "Starting Campanile task");
-    uint32_t time_till_next_ms = 0;
-    uint32_t time_threshold_ms = 1000 / CONFIG_FREERTOS_HZ;
-    while (1) {
-        // Lock the mutex due to the LVGL APIs are not thread-safe
-        _lock_acquire(&lvgl_api_lock);
-        update_screen(display, nmea_hndl, global_imu);
-        time_till_next_ms = lv_timer_handler();
-        _lock_release(&lvgl_api_lock);
-        // in case of triggering a task watch dog time out
-        time_till_next_ms = MAX(time_till_next_ms, time_threshold_ms);
-        usleep(1000 * time_till_next_ms);
-    }
 }
 
 /* Setup SPI for screen, initialize ESP LCD and LVGL. No rendering is done. */

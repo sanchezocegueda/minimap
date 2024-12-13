@@ -7,16 +7,18 @@
 #include "esp_log.h"
 #include "iot_button.h"
 
+typedef enum {
+    LEFT_PRESS,
+    RIGHT_PRESS,
+} minimap_button_event_t;
+
 #define LEFT_BUTTON_PIN 32
 #define RIGHT_BUTTON_PIN 21
 
-extern QueueHandle_t button_event_queue;
-
 void left_cb(void* arg, void *usr_data);
-
 void right_cb(void* arg, void *usr_data);
 
-/* Task to handle button interrupts. */
+/* Task to handle button interrupts. Needs button_event_queue passed to it. */
 void button_listener(void* arg);
 
 /* Create an IDF, GPIO button attached to GPIO_PIN. */

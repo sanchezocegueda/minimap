@@ -14,7 +14,8 @@
 #include "driver/i2c.h"
 
 #include "nmea_parser.h"
-#include "screen.h"
+
+#include "ui_utils.h"
 
 /* Code for our 2 physical buttons */
 #include "buttons.h"
@@ -29,13 +30,6 @@
 
 #include "psa/crypto.h"
 
-/* LoRa stuff */
-
-// typedef struct lora_packet {
-//   bool tx_rx;      // 0 for tx, 1 for rx
-//   int counter_val; // self-explanatory
-// } lora_packet_t;
-
 /* TODO: Cleanup */
 void send_lora_gps();
 
@@ -46,8 +40,8 @@ coordinates_t other;
 /* Global variable init */
 imu_data_t global_imu;
 nmea_parser_handle_t nmea_hndl;
-QueueHandle_t button_event_queue;
-QueueHandle_t counter_event_queue;
+// QueueHandle_t button_event_queue;
+// QueueHandle_t counter_event_queue;
 
 /* IMU Calibration, set accordingly in run_imu */
 calibration_t cal_mpu92_65 = {
@@ -69,40 +63,6 @@ calibration_t cal_mpu9250_6500 = {
 /* Global calibration variable */
 calibration_t *cal = &cal_mpu92_65;
 
-/**
- * Transformation:
- *  - Rotate around Z axis 180 degrees
- *  - Rotate around X axis -90 degrees
- * @param  {object} s {x,y,z} sensor
- * @return {object}   {x,y,z} transformed
- */
-static void transform_accel_gyro(vector_t *v)
-{
-  float x = v->x;
-  float y = v->y;
-  float z = v->z;
-
-  v->x = y;
-  v->y = x;
-  v->z = -z;
-}
-
-// TODO: technically not needed if we aren't changing the mag axes
-/**
- * Transformation: to get magnetometer aligned
- * @param  {object} s {x,y,z} sensor
- * @return {object}   {x,y,z} transformed
- */
-static void transform_mag(vector_t *v)
-{
-  float x = v->x;
-  float y = v->y;
-  float z = v->z;
-
-  v->x = x;
-  v->y = y;
-  v->z = z;
-}
 
 void run_imu(void)
 {
@@ -120,7 +80,7 @@ void run_imu(void)
     /* Transform these to the orientation of our device. */
     transform_accel_gyro(&va);
     transform_accel_gyro(&vg);
-    transform_mag(&vm);
+    // transform_mag(&vm);
 
     /* Apply the AHRS algorithm */
     ahrs_update(DEG2RAD(vg.x), DEG2RAD(vg.y), DEG2RAD(vg.z),
@@ -295,30 +255,41 @@ void lora_task(void *pvParam)
 void app_main()
 {
   /* Setup GPS */
-  nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
-  nmea_hndl = nmea_parser_init(&config);
+  // nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
+  // nmea_hndl = nmea_parser_init(&config);
 
   /* Setup IMU and start the polling task. */
   // xTaskCreate(imu_task, "imu_task", 4096, NULL, 10, NULL);
 
   /* Setup buttons */
   button_handle_t left_btn, right_btn;
-  init_buttons(&left_btn, &right_btn, &button_event_queue);
+  QueueHandle_t* button_event_queue = malloc(sizeof(QueueHandle_t*));
+  init_buttons(&left_btn, &right_btn, button_event_queue);
 
   /* Register default debugging callback functions. */
   iot_button_register_cb(left_btn, BUTTON_PRESS_DOWN, left_cb, NULL);
   iot_button_register_cb(right_btn, BUTTON_PRESS_DOWN, right_cb, NULL);
 
+  /* Run calibration task. */
+  calibrate_screen_params_t calibrate_params = {
+    .button_event_queue = button_event_queue,
+    .cal_x = cal,
+  };
+
+  /* Calibrate_task returns and does not infinite loop, so it's ok to use stack memory.
+  app_main runs this to completion before executing the next line of code.  */
+  xTaskCreate(calibrate_task, "calibration", 4096, &calibrate_params, 5, NULL);
+
   /* Malloc screen parameters for GPS data, counter data, imu data, and pass to lora task and screen task.
   Currently, this freed when screen_main_task cleans itself up (after the infinite loop) */
 
   /* tbh idk if storing all this on the heap is really cleaner than just using static memory...  but, I feel like it's not that bad */
-  screen_task_params_t *screen_params = malloc(sizeof(screen_task_params_t));
-  *screen_params->screen_lora_event_queue = xQueueCreate(5, sizeof(struct lora_packet));
-  /* TODO: Cleanup global_imu... Make a thread_safe ds similar to gps_t in nmea_parser.c */
-  screen_params->global_imu = &global_imu;
-  screen_params->nmea_hndl = nmea_hndl;
+  // screen_task_params_t *screen_params = malloc(sizeof(screen_task_params_t));
+  // *screen_params->screen_lora_event_queue = xQueueCreate(5, sizeof(struct lora_packet));
+  // /* TODO: Cleanup global_imu... Make a thread_safe ds similar to gps_t in nmea_parser.c */
+  // screen_params->global_imu = &global_imu;
+  // screen_params->nmea_hndl = nmea_hndl;
 
-  xTaskCreate(&lora_task, "lora_task", 4096, screen_params->screen_lora_event_queue, 5, NULL);
-  xTaskCreate(screen_main_task, "Minimap", LVGL_TASK_STACK_SIZE, screen_params, LVGL_TASK_PRIORITY, NULL);
+  // xTaskCreate(&lora_task, "lora_task", 4096, screen_params->screen_lora_event_queue, 5, NULL);
+  // xTaskCreate(screen_main_task, "Minimap", LVGL_TASK_STACK_SIZE, screen_params, LVGL_TASK_PRIORITY, NULL);
 }

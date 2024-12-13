@@ -166,4 +166,8 @@ esp_err_t get_mag_raw(uint8_t bytes[6]);
 
 void print_settings(void);
 
+
+void transform_accel_gyro(vector_t *v);
+void transform_mag(vector_t *v);
+
 #endif // __MPU9250_H

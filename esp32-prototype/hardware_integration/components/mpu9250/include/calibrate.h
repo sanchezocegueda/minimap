@@ -22,5 +22,8 @@
 void calibrate_gyro(void);
 void calibrate_accel(void);
 void calibrate_mag(void);
+void calibrate_gyro_with_output(calibration_t* cal_mpu_x);
+void calibrate_accel_with_output(calibration_t* cal_mpu_x);
+void calibrate_mag_with_output(calibration_t* cal_mpu_x);
 
 #endif

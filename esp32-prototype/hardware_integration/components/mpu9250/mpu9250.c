@@ -552,10 +552,48 @@ void print_gyro_settings(void)
   ESP_LOGI(TAG, "  --> z: %f", cal->gyro_bias_offset.z);
 };
 
+
+
 void print_settings(void)
 {
   mpu9250_print_settings();
   print_accel_settings();
   print_gyro_settings();
   ak8963_print_settings();
+}
+
+
+// TODO: maybe don't want this here
+/**
+ * Transformation:
+ *  - Rotate around Z axis 180 degrees
+ *  - Rotate around X axis -90 degrees
+ * @param  {object} s {x,y,z} sensor
+ * @return {object}   {x,y,z} transformed
+ */
+void transform_accel_gyro(vector_t *v)
+{
+  float x = v->x;
+  float y = v->y;
+  float z = v->z;
+
+  v->x = y;
+  v->y = x;
+  v->z = -z;
+}
+
+/**
+ * Transformation: to get magnetometer aligned
+ * @param  {object} s {x,y,z} sensor
+ * @return {object}   {x,y,z} transformed
+ */
+void transform_mag(vector_t *v)
+{
+  float x = v->x;
+  float y = v->y;
+  float z = v->z;
+
+  v->x = x;
+  v->y = y;
+  v->z = z;
 }

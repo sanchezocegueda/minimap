@@ -111,6 +111,43 @@ void calibrate_gyro(void)
   printf("    .gyro_bias_offset = {.x = %f, .y = %f, .z = %f}\n", vg_sum.x, vg_sum.y, vg_sum.z);
 }
 
+void calibrate_gyro_with_output(calibration_t* cal_mpu_x)
+{
+  init_imu();
+
+  ESP_LOGI(TAG, "--- GYRO CALIBRATION ---");
+  ESP_LOGW(TAG, "Keep the MPU very still.  Calculating gyroscope bias");
+  wait();
+
+  vector_t vg_sum;
+  vg_sum.x = 0.0;
+  vg_sum.y = 0.0;
+  vg_sum.z = 0.0;
+  for (int i = 0; i < NUM_GYRO_READS; i += 1)
+  {
+
+    vector_t vg;
+
+    ESP_ERROR_CHECK(get_gyro(&vg));
+
+    vg_sum.x += vg.x;
+    vg_sum.y += vg.y;
+    vg_sum.z += vg.z;
+
+    // Make the WDT happy
+    if (i % 100 == 0)
+      vTaskDelay(0);
+
+    imu_pause();
+  }
+
+  vg_sum.x /= -NUM_GYRO_READS;
+  vg_sum.y /= -NUM_GYRO_READS;
+  vg_sum.z /= -NUM_GYRO_READS;
+
+  printf("    .gyro_bias_offset = {.x = %f, .y = %f, .z = %f}\n", vg_sum.x, vg_sum.y, vg_sum.z);
+}
+
 /**
  * 
  * ACCELEROMETER 
@@ -210,6 +247,8 @@ void calibrate_accel_axis(int axis, int dir)
   }
 }
 
+
+
 /**
  * Set up the next capture for an axis and a direction (up / down).
  */
@@ -222,6 +261,38 @@ void run_next_capture(int axis, int dir)
 }
 
 void calibrate_accel(void)
+{
+  init_imu();
+
+  ESP_LOGI(TAG, "--- ACCEL CALIBRATION ---");
+
+  run_next_capture(X_AXIS, DIR_UP);
+  run_next_capture(X_AXIS, DIR_DOWN);
+  run_next_capture(Y_AXIS, DIR_UP);
+  run_next_capture(Y_AXIS, DIR_DOWN);
+  run_next_capture(Z_AXIS, DIR_UP);
+  run_next_capture(Z_AXIS, DIR_DOWN);
+
+  offset.x /= (NUM_ACCEL_READS * 4.0);
+  offset.y /= (NUM_ACCEL_READS * 4.0);
+  offset.z /= (NUM_ACCEL_READS * 4.0);
+  scale_lo.x /= NUM_ACCEL_READS;
+  scale_lo.y /= NUM_ACCEL_READS;
+  scale_lo.z /= NUM_ACCEL_READS;
+  scale_hi.x /= NUM_ACCEL_READS;
+  scale_hi.y /= NUM_ACCEL_READS;
+  scale_hi.z /= NUM_ACCEL_READS;
+
+  printf("    .accel_offset = {.x = %f, .y = %f, .z = %f},\n    .accel_scale_lo = {.x = %f, .y = %f, .z = %f},\n    .accel_scale_hi = {.x = %f, .y = %f, .z = %f},\n",
+         offset.x, offset.y, offset.z,
+         scale_lo.x, scale_lo.y, scale_lo.z,
+         scale_hi.x, scale_hi.y, scale_hi.z);
+}
+
+
+
+/* Modified version of calibrate_accel that stores the calibration data persistently. */
+void calibrate_accel_with_output(calibration_t* cal_mpu_x)
 {
   init_imu();
 
@@ -266,6 +337,57 @@ void calibrate_accel(void)
 #define MAX(a, b) (a > b ? a : b)
 
 void calibrate_mag(void)
+{
+
+  vector_t v_min = {
+      .x = 9.9e99,
+      .y = 9.9e99,
+      .z = 9.9e99};
+  vector_t v_max = {
+      .x = -9.9e99,
+      .y = -9.9e99,
+      .z = -9.9e99};
+
+  const int NUM_MAG_READS = 2000;
+
+  init_imu();
+
+  ESP_LOGW(TAG, "Rotate the magnometer around all 3 axes, until the min and max values don't change anymore.");
+
+  printf("    x        y        z      min x     min y     min z     max x     max y     max z\n");
+  for (int i = 0; i < NUM_MAG_READS; i += 1)
+  {
+    vector_t vm;
+    get_mag(&vm);
+    v_min.x = MIN(v_min.x, vm.x);
+    v_min.y = MIN(v_min.y, vm.y);
+    v_min.z = MIN(v_min.z, vm.z);
+    v_max.x = MAX(v_max.x, vm.x);
+    v_max.y = MAX(v_max.y, vm.y);
+    v_max.z = MAX(v_max.z, vm.z);
+
+    printf(" %0.3f    %0.3f    %0.3f    %0.3f   %0.3f   %0.3f   %0.3f   %0.3f   %0.3f       \r", vm.x, vm.y, vm.z, v_min.x, v_min.y, v_min.z, v_max.x, v_max.y, v_max.z);
+
+    vTaskDelay(10 / portTICK_PERIOD_MS);
+  }
+
+  vector_t v_avg = {
+      .x = (v_max.x - v_min.x) / 2.0,
+      .y = (v_max.y - v_min.y) / 2.0,
+      .z = (v_max.z - v_min.z) / 2.0};
+  float avg_radius = (v_avg.x + v_avg.y + v_avg.z) / 3.0;
+  vector_t v_scale = {
+      .x = avg_radius / v_avg.x,
+      .y = avg_radius / v_avg.y,
+      .z = avg_radius / v_avg.z};
+
+  printf("\n");
+  printf("    .mag_offset = {.x = %f, .y = %f, .z = %f},\n", (v_min.x + v_max.x) / 2, (v_min.y + v_max.y) / 2, (v_min.z + v_max.z) / 2);
+  printf("    .mag_scale = {.x = %f, .y = %f, .z = %f},\n", v_scale.x, v_scale.y, v_scale.z);
+}
+
+
+void calibrate_mag_with_output(calibration_t* cal_mpu_x)
 {
 
   vector_t v_min = {
