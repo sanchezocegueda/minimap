@@ -1,0 +1,19 @@
+# Nmea commands
+Check the Air530 Manual
+101: Can configure the interval for outputting nmea messages
+
+105: Low power mode
+
+113 and 114: Enable QZSS. We will not receive qzss satellites in US
+
+239: enable SBAS. This should also be good, but we probably have to write a parser
+
+115: Change the satellite mode
+- Note that Galileo does not work...
+- From my testing, I could not find Beidou satellites either, but more testing should be done...
+161: Configure PPS mode, I assume we want to use this...
+- look up PPS positioning
+
+242: Set NMEA sentence output enable
+- which statements should the module transmit over uart...
+

@@ -1,0 +1,15 @@
+tx power can be set to 23 dBm because the rfm95 uses pa_boost
+- Maybe?? I'm not so positive on this, arduino code implies it but the datasheet seems to imply 20dBm is max
+
+study section 4.1, from page 23 onwords.
+- Especially princiciple of operation!!!
+- FIFO buffer is cleared when entering sleep mode, data is stored on any other mode switch.
+- we should use implicit mode to ignore sending message `PayloadLength` and `FifoRxBytesNb`
+- probably want to use `RxSingle` mode instead of continuous
+- config registers should only be written in sleep and stand-by mode.
+
+can use DIO1 as a hardware interrupt for RxTimeout
+- we could short DIO0 and DIO1 then configure DIO1 to interrupt on RxTimeout when we enter receive mode (write 0 into DIO1 reg), otherwise it never generates an input (write 3 into DIO1 reg)
+
+Really need to tweak Spreading factor, bandwidth, enable implicit header mode (and all that is implied with it)
+- I believe we want high SF, low bandwidth, high power for the max range/robustness, but this will mean our packets have to be really small.

@@ -1,0 +1,43 @@
+menu "LoRa Configuration"
+
+config LORA_CS_GPIO
+    int "CS GPIO"
+    range 0 35
+    default 13
+    help
+	Pin Number where the CS pin of the LoRa module is connected to.
+
+config LORA_MISO_GPIO
+    int "MISO GPIO"
+    range 0 35
+    default 14
+    help
+	Pin Number to be used as the MISO SPI signal.
+
+config LORA_MOSI_GPIO
+    int "MOSI GPIO"
+    range 0 35
+    default 12
+    help
+	Pin Number to be used as the MOSI SPI signal.
+
+config LORA_SCK_GPIO
+    int "SCK GPIO"
+    range 0 35
+    default 27
+    help
+	Pin Number to be used as the SCK SPI signal.
+
+config LORA_DIO0_GPIO
+    int "DIO0 GPIO"
+    range 0 35
+    default 26
+    help
+	Pin Number to be used as the DIO0 interrupt.
+
+config LORA_IRQ_ENABLED
+    bool "Use DIO0 as an interrupt"
+    default false
+    help
+	Enabling this will support the functions lora_receive_packet_blocking and lora_transmit_packet_blocking.
+endmenu
