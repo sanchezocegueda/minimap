@@ -80,7 +80,12 @@ void screen_main_task(void *arg)
     while (1) {
             // Lock the mutex due to the LVGL APIs are not thread-safe
         _lock_acquire(&lvgl_api_lock);
-        update_screen(display, nmea_hndl, global_imu);
+        lv_obj_clean(lv_screen_active());
+        lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x020C0E),
+                            LV_PART_MAIN);
+        // update_screen(display, nmea_hndl, global_imu);
+        
+        render_counter();
         // varun_ui(display);
         time_till_next_ms = lv_timer_handler();
         _lock_release(&lvgl_api_lock);

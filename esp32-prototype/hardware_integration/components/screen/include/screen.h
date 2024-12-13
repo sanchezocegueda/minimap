@@ -67,4 +67,6 @@ typedef struct screen_task_params {
     nmea_parser_handle_t nmea_hndl;
 } screen_task_params_t;
 
+void render_counter(void);
+
 #endif

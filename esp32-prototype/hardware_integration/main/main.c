@@ -40,6 +40,7 @@ coordinates_t other;
 imu_data_t global_imu;
 nmea_parser_handle_t nmea_hndl;
 QueueHandle_t button_event_queue;
+QueueHandle_t counter_event_queue;
 
 /* IMU Calibration, set accordingly in run_imu */
 calibration_t cal_mpu92_65 = {
@@ -168,10 +169,12 @@ void task_tx(void *p)
    static uint32_t counter = 0;
    ESP_LOGI("[TX]", "Starting");
    for(;;) {
+      counter = rand();
       lora_send_packet((uint8_t*)&counter, 4);
       ESP_LOGI("[TX]", "counter: %ld", counter);
-      counter++;
-      vTaskDelay(pdMS_TO_TICKS(2500));
+      xQueueSend(counter_event_queue, &counter, portMAX_DELAY);
+
+      vTaskDelay(pdMS_TO_TICKS(10000));
    }
 }
 
@@ -186,6 +189,7 @@ void task_rx(void *p)
       while(lora_received()) {
         x = lora_receive_packet(buf, sizeof(buf));
         ESP_LOGI("[RX]", "%d bytes, counter: %ld", x, (uint32_t) buf[0]);
+        xQueueSend(counter_event_queue, buf, portMAX_DELAY);
       }
       vTaskDelay(1);
    }
@@ -259,8 +263,8 @@ void receive_lora_gps(void*) {
 void app_main()
 {
   /* Setup GPS */
-  // nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
-  // nmea_hndl = nmea_parser_init(&config);
+  nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
+  nmea_hndl = nmea_parser_init(&config);
 
   /* Setup IMU and start the polling task. */
   // xTaskCreate(imu_task, "imu_task", 4096, NULL, 10, NULL);
@@ -268,6 +272,7 @@ void app_main()
   /* Setup buttons */
   button_handle_t left_btn, right_btn;
   init_buttons(&left_btn, &right_btn, &button_event_queue);
+  counter_event_queue = xQueueCreate(5, sizeof(int));
 
   iot_button_register_cb(left_btn, BUTTON_PRESS_DOWN, left_cb, NULL);
   iot_button_register_cb(right_btn, BUTTON_PRESS_DOWN, right_cb, NULL);
@@ -280,15 +285,15 @@ void app_main()
   /* Set spreading factor, bandwidth, sync word, implicit header mode (and all that follows)*/
 
   // xTaskCreate(&task_tx, "task_tx", 4096, NULL, 5, NULL);
-  xTaskCreate(&task_rx, "task_rx", 4096, NULL, 5, NULL);
+   xTaskCreate(&task_rx, "task_rx", 4096, NULL, 5, NULL);
   // xTaskCreate(&task_both_gps, "task_both", 4096, NULL, 5, NULL);
   // xTaskCreate(&receive_lora_gps, "task_lora_rx", 2048, NULL, 5, NULL);
 
   // test_encryption();
-  // screen_task_params_t *screen_params = malloc(sizeof(screen_task_params_t));
-  // screen_params->global_imu = &global_imu;
-  // screen_params->nmea_hndl = nmea_hndl;
+  screen_task_params_t *screen_params = malloc(sizeof(screen_task_params_t));
+  screen_params->global_imu = &global_imu;
+  screen_params->nmea_hndl = nmea_hndl;
 
-  // xTaskCreate(screen_main_task, "Minimap", LVGL_TASK_STACK_SIZE, screen_params, LVGL_TASK_PRIORITY, NULL);
+  xTaskCreate(screen_main_task, "Minimap", LVGL_TASK_STACK_SIZE, screen_params, LVGL_TASK_PRIORITY, NULL);
 
 }
