@@ -61,6 +61,11 @@ typedef struct imu_data {
     float pitch;
 } imu_data_t;
 
+typedef struct lora_packet {
+  bool tx_rx;      // 0 for tx, 1 for rx
+  int counter_val; // self-explanatory
+} lora_packet_t;
+
 /* pvParameter for app_main to pass to xCreateTask for the screen */
 typedef struct screen_task_params {
     imu_data_t* global_imu;

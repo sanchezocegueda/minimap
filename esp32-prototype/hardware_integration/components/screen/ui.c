@@ -242,12 +242,12 @@ void update_screen(lv_display_t *disp, nmea_parser_handle_t nmea_hndl,
 
 void render_counter(QueueHandle_t* screen_lora_event_queue) {
 
-  int receivedValue;
+  lora_packet_t receivedValue;
   if (xQueueReceive(*screen_lora_event_queue, &receivedValue, portMAX_DELAY) == pdPASS) {
     pos_t origin = {0, 0};
-    char our_label[32];
-    ESP_LOGI("QUEUE READ", "Value from queue %d", receivedValue);
-    sprintf(our_label, "Recieved %d", receivedValue);
+    static char our_label[32];
+    ESP_LOGI("QUEUE READ", "Value from queue %d", receivedValue.counter_val);
+    sprintf(our_label, "Received: %d", receivedValue.counter_val);
     draw_bubble(&origin, our_label);
   }
 }

@@ -29,6 +29,13 @@
 
 #include "psa/crypto.h"
 
+/* LoRa stuff */
+
+// typedef struct lora_packet {
+//   bool tx_rx;      // 0 for tx, 1 for rx
+//   int counter_val; // self-explanatory
+// } lora_packet_t;
+
 /* TODO: Cleanup */
 void send_lora_gps();
 
@@ -165,13 +172,16 @@ void task_tx(void *p)
   ESP_LOGI("[TX]", "started");
   QueueHandle_t *screen_lora_event_queue = (QueueHandle_t *)p;
   static uint32_t counter = 0;
+  static lora_packet_t packet_tx;
+  packet_tx.tx_rx = 0; // indicate that this is transmitter
   for (;;)
   {
     // counter = rand(); I think the counter should be strictly increasing so we know if we missed a transmission
     lora_send_packet((uint8_t *)&counter, 4);
     ESP_LOGI("[TX]", "counter: %ld", counter);
-    xQueueSend(*screen_lora_event_queue, &counter, portMAX_DELAY);
-
+    packet_tx.counter_val = counter;
+    xQueueSendToFront(*screen_lora_event_queue, &packet_tx, portMAX_DELAY);
+    counter++;
     vTaskDelay(pdMS_TO_TICKS(10000));
   }
 }
@@ -183,14 +193,17 @@ void task_rx(void *p)
   QueueHandle_t *screen_lora_event_queue = (QueueHandle_t *)p;
   uint8_t buf[4];
   int x;
+  static lora_packet_t packet_rx;
+  packet_rx.tx_rx = 1; // indicate that this is receiver
   for (;;)
   {
     lora_receive();
     while (lora_received())
     {
       x = lora_receive_packet(buf, sizeof(buf));
+      packet_rx.counter_val = x;
       ESP_LOGI("[RX]", "%d bytes, counter: %ld", x, (uint32_t)buf[0]);
-      xQueueSend(*screen_lora_event_queue, buf, portMAX_DELAY);
+      xQueueSend(*screen_lora_event_queue, &packet_rx, portMAX_DELAY);
     }
     vTaskDelay(1);
   }
@@ -273,8 +286,8 @@ void lora_task(void *pvParam)
   /* Set spreading factor, bandwidth, sync word, implicit header mode (and all that follows)*/
 
   /* Start an actual task for the radio... */
-  task_rx(screen_lora_event_queue);
-  // task_tx(screen_lora_event_queue);
+  // task_rx(screen_lora_event_queue);
+  task_tx(screen_lora_event_queue);
   // task_both_gps(screen_lora_event_queue);
   // task_lora_rx(screen_lora_event_queue);
 }
@@ -301,7 +314,7 @@ void app_main()
 
   /* tbh idk if storing all this on the heap is really cleaner than just using static memory...  but, I feel like it's not that bad */
   screen_task_params_t *screen_params = malloc(sizeof(screen_task_params_t));
-  *screen_params->screen_lora_event_queue = xQueueCreate(5, sizeof(int));
+  *screen_params->screen_lora_event_queue = xQueueCreate(5, sizeof(struct lora_packet));
   /* TODO: Cleanup global_imu... Make a thread_safe ds similar to gps_t in nmea_parser.c */
   screen_params->global_imu = &global_imu;
   screen_params->nmea_hndl = nmea_hndl;
