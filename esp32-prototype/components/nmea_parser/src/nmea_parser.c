@@ -19,13 +19,6 @@
  */
 #define NMEA_PARSER_RUNTIME_BUFFER_SIZE (CONFIG_NMEA_PARSER_RING_BUFFER_SIZE / 2)
 #define NMEA_MAX_STATEMENT_ITEM_LENGTH (16)
-#define NMEA_EVENT_LOOP_QUEUE_SIZE (16)
-
-/**
- * @brief Define of NMEA Parser Event base
- *
- */
-ESP_EVENT_DEFINE_BASE(ESP_NMEA_EVENT);
 
 static const char *GPS_TAG = "nmea_parser";
 
@@ -47,7 +40,6 @@ typedef struct {
     gps_t parent;                                  /*!< Parent class */
     uart_port_t uart_port;                         /*!< Uart port number */
     uint8_t *buffer;                               /*!< Runtime buffer */
-    esp_event_loop_handle_t event_loop_hdl;        /*!< Event loop handle */
     TaskHandle_t tsk_hdl;                          /*!< NMEA Parser task handle */
     QueueHandle_t event_queue;                     /*!< UART event queue handle */
 } esp_gps_t;
@@ -113,6 +105,7 @@ static void parse_gga(esp_gps_t *esp_gps)
         parse_utc_time(esp_gps);
         break;
     case 2: /* Latitude */
+        xSemaphoreTake(esp_gps->parent.lock, portMAX_DELAY);
         esp_gps->parent.latitude = parse_lat_long(esp_gps);
         break;
     case 3: /* Latitude north(1)/south(-1) information */
@@ -127,6 +120,7 @@ static void parse_gga(esp_gps_t *esp_gps)
         if (esp_gps->item_str[0] == 'W' || esp_gps->item_str[0] == 'w') {
             esp_gps->parent.longitude *= -1;
         }
+        xSemaphoreGive(esp_gps->parent.lock);
         break;
     case 6: /* Fix status */
         esp_gps->parent.fix = (gps_fix_t)strtol(esp_gps->item_str, NULL, 10);
@@ -248,6 +242,7 @@ static void parse_rmc(esp_gps_t *esp_gps)
         esp_gps->parent.valid = (esp_gps->item_str[0] == 'A');
         break;
     case 3:/* Latitude */
+        xSemaphoreTake(esp_gps->parent.lock, portMAX_DELAY);
         esp_gps->parent.latitude = parse_lat_long(esp_gps);
         break;
     case 4: /* Latitude north(1)/south(-1) information */
@@ -262,6 +257,7 @@ static void parse_rmc(esp_gps_t *esp_gps)
         if (esp_gps->item_str[0] == 'W' || esp_gps->item_str[0] == 'w') {
             esp_gps->parent.longitude *= -1;
         }
+        xSemaphoreGive(esp_gps->parent.lock);
         break;
     case 7: /* Process ground speed in unit m/s */
         esp_gps->parent.speed = strtof(esp_gps->item_str, NULL) * 1.852;
@@ -294,6 +290,7 @@ static void parse_gll(esp_gps_t *esp_gps)
     /* Process GPGLL statement */
     switch (esp_gps->item_num) {
     case 1:/* Latitude */
+        xSemaphoreTake(esp_gps->parent.lock, portMAX_DELAY);
         esp_gps->parent.latitude = parse_lat_long(esp_gps);
         break;
     case 2: /* Latitude north(1)/south(-1) information */
@@ -308,6 +305,7 @@ static void parse_gll(esp_gps_t *esp_gps)
         if (esp_gps->item_str[0] == 'W' || esp_gps->item_str[0] == 'w') {
             esp_gps->parent.longitude *= -1;
         }
+        xSemaphoreGive(esp_gps->parent.lock);
         break;
     case 5:/* Process UTC time */
         parse_utc_time(esp_gps);
@@ -531,14 +529,7 @@ static esp_err_t gps_decode(esp_gps_t *esp_gps, size_t len)
                 if (((esp_gps->parsed_statement) & esp_gps->all_statements) == esp_gps->all_statements) {
                     esp_gps->parsed_statement = 0;
                     // TODO: Buffer dumps are for debugging satellites in range.
-                    // ESP_LOG_BUFFER_HEXDUMP("KNOWN STATEMENT", esp_gps->buffer, len, ESP_LOG_WARN);
-
-                    /* Send signal to notify that GPS information has been updated */
-                    esp_event_post_to(esp_gps->event_loop_hdl, ESP_NMEA_EVENT, ENCRYPTION_UPDATE,
-                                      &(esp_gps->parent), sizeof(gps_t), 100 / portTICK_PERIOD_MS);
-
-                    esp_event_post_to(esp_gps->event_loop_hdl, ESP_NMEA_EVENT, SCREEN_UPDATE,
-                                      &(esp_gps->parent), sizeof(gps_t), 100 / portTICK_PERIOD_MS);
+                    ESP_LOG_BUFFER_HEXDUMP("KNOWN STATEMENT", esp_gps->buffer, len, ESP_LOG_WARN);
                 }
             } else {
                 ESP_LOGD(GPS_TAG, "CRC Error for statement:%s", esp_gps->buffer);
@@ -546,9 +537,8 @@ static esp_err_t gps_decode(esp_gps_t *esp_gps, size_t len)
             if (esp_gps->cur_statement == STATEMENT_UNKNOWN) {
                 /* Send signal to notify that one unknown statement has been met */
 
-                // ESP_LOG_BUFFER_HEXDUMP("UNKNOWN STATEMENT", esp_gps->buffer, len, ESP_LOG_ERROR);
-                esp_event_post_to(esp_gps->event_loop_hdl, ESP_NMEA_EVENT, GPS_UNKNOWN,
-                                  esp_gps->buffer, len, 100 / portTICK_PERIOD_MS);
+                // TODO: Buffer dumps are for debugging satellites in range.
+                ESP_LOG_BUFFER_HEXDUMP("UNKNOWN STATEMENT", esp_gps->buffer, len, ESP_LOG_ERROR);
             }
         }
         /* Other non-space character */
@@ -631,8 +621,6 @@ static void nmea_parser_task_entry(void *arg)
                 break;
             }
         }
-        /* Drive the event loop */
-        esp_event_loop_run(esp_gps->event_loop_hdl, pdMS_TO_TICKS(50));
     }
     vTaskDelete(NULL);
 }
@@ -646,6 +634,12 @@ static void nmea_parser_task_entry(void *arg)
 nmea_parser_handle_t nmea_parser_init(const nmea_parser_config_t *config)
 {
     esp_gps_t *esp_gps = calloc(1, sizeof(esp_gps_t));
+    /* Initialize a mutex for the gps data. */
+    esp_gps->parent.lock = xSemaphoreCreateMutex();
+    if (esp_gps->parent.lock == NULL) {
+        ESP_LOGE(GPS_TAG, "Could not create semaphore for gps");
+        goto err_gps;
+    }
     if (!esp_gps) {
         ESP_LOGE(GPS_TAG, "calloc memory for esp_fps failed");
         goto err_gps;
@@ -676,7 +670,7 @@ nmea_parser_handle_t nmea_parser_init(const nmea_parser_config_t *config)
     /* Set attributes */
     esp_gps->uart_port = config->uart.uart_port;
     esp_gps->all_statements &= 0xFE;
-    /* Install UART friver */
+    /* Install UART driver */
     uart_config_t uart_config = {
         .baud_rate = config->uart.baud_rate,
         .data_bits = config->uart.data_bits,
@@ -705,21 +699,25 @@ nmea_parser_handle_t nmea_parser_init(const nmea_parser_config_t *config)
     /* Set pattern queue size */
     uart_pattern_queue_reset(esp_gps->uart_port, config->uart.event_queue_size);
     uart_flush(esp_gps->uart_port);
-    /* Create Event loop */
-    esp_event_loop_args_t loop_args = {
-        .queue_size = NMEA_EVENT_LOOP_QUEUE_SIZE,
-        .task_name = NULL
-    };
-    if (esp_event_loop_create(&loop_args, &esp_gps->event_loop_hdl) != ESP_OK) {
-        ESP_LOGE(GPS_TAG, "create event loop faild");
-        goto err_eloop;
-    }
     
+
     /* TODO: Move to function. Air530 Hardware configuration! */
+
+    /* Multi satellite mode */
     char gps_beidou[] = "$PGKC115,1,0,1,0*2A\r\n";
     char gps_glonass[] = "$PGKC115,1,1,0,0*2A\r\n";
+    /* Galileo does not seem to be supported... We should test more. */
     char gps_galileo[] = "$PGKC115,1,0,0,1*2A\r\n";
+
+    /* Try to parse all of GLL, RMC, VTG, GGA, GSA, GSV, GRS, GST */
+    char enable_all_statements[] = "$PGKC242,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0*37\r\n";
+    /* Enable SBAS */
+    char enable_sbas[] = "$PGKC239,1*3A\r\n";
     uart_write_bytes(esp_gps->uart_port, gps_glonass, strlen(gps_glonass));
+
+    uart_write_bytes(esp_gps->uart_port, enable_all_statements, strlen(enable_all_statements));
+
+    uart_write_bytes(esp_gps->uart_port, enable_sbas, strlen(enable_sbas));
 
     /* Create NMEA Parser task */
     BaseType_t err = xTaskCreate(
@@ -737,8 +735,6 @@ nmea_parser_handle_t nmea_parser_init(const nmea_parser_config_t *config)
     return esp_gps;
     /*Error Handling*/
 err_task_create:
-    esp_event_loop_delete(esp_gps->event_loop_hdl);
-err_eloop:
 err_uart_install:
     uart_driver_delete(esp_gps->uart_port);
 err_uart_config:
@@ -759,7 +755,6 @@ esp_err_t nmea_parser_deinit(nmea_parser_handle_t nmea_hdl)
 {
     esp_gps_t *esp_gps = (esp_gps_t *)nmea_hdl;
     vTaskDelete(esp_gps->tsk_hdl);
-    esp_event_loop_delete(esp_gps->event_loop_hdl);
     esp_err_t err = uart_driver_delete(esp_gps->uart_port);
     free(esp_gps->buffer);
     free(esp_gps);
@@ -767,49 +762,12 @@ esp_err_t nmea_parser_deinit(nmea_parser_handle_t nmea_hdl)
 }
 
 /**
- * @brief Add user defined handler for NMEA parser
- *
- * @param nmea_hdl handle of NMEA parser
- * @param event_handler user defined event handler
- * @param handler_args handler specific arguments
- * @param event_base event id to register the function with
- * @return esp_err_t
- *  - ESP_OK: Success
- *  - ESP_ERR_NO_MEM: Cannot allocate memory for the handler
- *  - ESP_ERR_INVALIG_ARG: Invalid combination of event base and event id
- *  - Others: Fail
- */
-esp_err_t nmea_parser_add_handler(nmea_parser_handle_t nmea_hdl, esp_event_handler_t event_handler, void *handler_args, nmea_event_id_t event_base)
-{
-    esp_gps_t *esp_gps = (esp_gps_t *)nmea_hdl;
-    return esp_event_handler_register_with(esp_gps->event_loop_hdl, ESP_NMEA_EVENT, event_base,
-                                           event_handler, handler_args);
-}
-
-/**
- * @brief Remove user defined handler for NMEA parser
- *
- * @param nmea_hdl handle of NMEA parser
- * @param event_handler user defined event handler
- * @param event_base event id to unregister the function with
- * @return esp_err_t
- *  - ESP_OK: Success
- *  - ESP_ERR_INVALIG_ARG: Invalid combination of event base and event id
- *  - Others: Fail
- */
-esp_err_t nmea_parser_remove_handler(nmea_parser_handle_t nmea_hdl, esp_event_handler_t event_handler, nmea_event_id_t event_base)
-{
-    esp_gps_t *esp_gps = (esp_gps_t *)nmea_hdl;
-    return esp_event_handler_unregister_with(esp_gps->event_loop_hdl, ESP_NMEA_EVENT, event_base, event_handler);
-}
-
-
-/**
  * @brief Logs gps data to stdout
  * 
  * @param gps pointer to gps struct
  */
-void gps_debug(gps_t* gps) {
+void gps_debug(nmea_parser_handle_t nmea_hndl) {
+    gps_t* gps = &((esp_gps_t*)nmea_hndl)->parent;
     ESP_LOGI("[GPS_DEBUG]", "%d/%d/%d %d:%d:%d => \r\n"
                 "\t\t\t\t\t\tlatitude   = %.05f°N\r\n"
                 "\t\t\t\t\t\tlongitude = %.05f°E\r\n"
@@ -818,4 +776,20 @@ void gps_debug(gps_t* gps) {
                 gps->date.year + YEAR_BASE, gps->date.month, gps->date.day,
                 gps->tim.hour + TIME_ZONE, gps->tim.minute, gps->tim.second,
                 gps->latitude, gps->longitude, gps->altitude, gps->speed);
+}
+
+/**
+ * @brief Returns lat/lon of the GPS in a thread-safe manner.
+ * 
+ * @param nmea_hndl returned from nmea_parser_init
+ * @return coordinates_t with lat/lon of `gps`
+ */
+coordinates_t read_gps(nmea_parser_handle_t nmea_hndl) {
+    gps_t* gps = &((esp_gps_t*)nmea_hndl)->parent;
+    coordinates_t cord;
+    xSemaphoreTake(gps->lock, portMAX_DELAY);
+    cord.lat = gps->latitude;
+    cord.lon = gps->longitude;
+    xSemaphoreGive(gps->lock);
+    return cord;
 }

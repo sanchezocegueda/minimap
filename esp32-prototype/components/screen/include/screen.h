@@ -55,13 +55,16 @@ void screen_main_task(void(*));
 
 // TODO: Move to ui.h
 #include "nmea_parser.h"
-typedef struct {
+typedef struct imu_data {
     float heading;
     float roll;
     float pitch;
 } imu_data_t;
 
-extern imu_data_t global_imu;
-extern gps_t global_gps;
+/* pvParameter for app_main to pass to xCreateTask for the screen */
+typedef struct screen_task_params {
+    imu_data_t* global_imu;
+    nmea_parser_handle_t nmea_hndl;
+} screen_task_params_t;
 
 #endif

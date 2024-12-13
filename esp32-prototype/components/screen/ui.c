@@ -30,12 +30,6 @@
 #define CORY_DOORS_LATITUDE 37.87535
 #define CORY_DOORS_ALTITUDE 150.10001
 
-/* GPS Coordinate */
-typedef struct coordinates
-{
-    float lat;
-    float lon;
-} coordinates_t;
 
 // TODO: MOVE
 extern coordinates_t other;
@@ -218,17 +212,15 @@ void display_screen(coordinates_t *curr_pos, coordinates_t *other_pos, int num_o
 }
 
 /* Update information for the screen and display it. Gets called every 2ms. */
-void update_screen(lv_display_t *disp, gps_t *global_gps, imu_data_t *global_imu)
+void update_screen(lv_display_t *disp, nmea_parser_handle_t nmea_hndl, imu_data_t *global_imu)
 {
     // TODO: unjank
     // if (global_gps->latitude == 0.0 || global_gps->longitude == 0.0) {
     //     return;
     // }
-
-    coordinates_t curr_pos = {
-        global_gps->latitude,
-        global_gps->longitude
-    };
+    
+    coordinates_t curr_pos = read_gps(nmea_hndl);
+        
 
     coordinates_t cory_hall = {
         CORY_DOORS_LATITUDE,

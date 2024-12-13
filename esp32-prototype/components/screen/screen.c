@@ -70,6 +70,9 @@ static void increase_lvgl_tick(void *arg)
 /* The actual code that loops and updates the screen */
 void screen_main_task(void *arg)
 {
+    screen_task_params_t* args = (screen_task_params_t*)arg;
+    nmea_parser_handle_t nmea_hndl = args->nmea_hndl;
+    imu_data_t* global_imu = args->global_imu;
     start_screen();
     ESP_LOGI(SCREEN_TAG, "Starting LVGL task");
     uint32_t time_till_next_ms = 0;
@@ -77,7 +80,7 @@ void screen_main_task(void *arg)
     while (1) {
             // Lock the mutex due to the LVGL APIs are not thread-safe
         _lock_acquire(&lvgl_api_lock);
-        update_screen(display, &global_gps, &global_imu);
+        update_screen(display, nmea_hndl, global_imu);
         // varun_ui(display);
         time_till_next_ms = lv_timer_handler();
         _lock_release(&lvgl_api_lock);
@@ -89,13 +92,17 @@ void screen_main_task(void *arg)
 
 static void screen_campanile_task(void *arg)
 {
-        ESP_LOGI(SCREEN_TAG, "Starting Campanile task");
+    screen_task_params_t* args = (screen_task_params_t*)arg;
+    nmea_parser_handle_t nmea_hndl = args->nmea_hndl;
+    imu_data_t* global_imu = args->global_imu;
+    start_screen();
+    ESP_LOGI(SCREEN_TAG, "Starting Campanile task");
     uint32_t time_till_next_ms = 0;
     uint32_t time_threshold_ms = 1000 / CONFIG_FREERTOS_HZ;
     while (1) {
         // Lock the mutex due to the LVGL APIs are not thread-safe
         _lock_acquire(&lvgl_api_lock);
-        update_screen(display, &global_gps, &global_imu);
+        update_screen(display, nmea_hndl, global_imu);
         time_till_next_ms = lv_timer_handler();
         _lock_release(&lvgl_api_lock);
         // in case of triggering a task watch dog time out

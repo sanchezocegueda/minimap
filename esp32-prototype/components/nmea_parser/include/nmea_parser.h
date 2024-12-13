@@ -115,6 +115,7 @@ typedef struct {
     float speed;                                                   /*!< Ground speed, unit: m/s */
     float cog;                                                     /*!< Course over ground */
     float variation;                                               /*!< Magnetic variation */
+    SemaphoreHandle_t lock;                                        /*!< Lock for lat/long data */
 } gps_t;
 
 /**
@@ -157,16 +158,6 @@ typedef void *nmea_parser_handle_t;
     }
 
 /**
- * @brief NMEA Parser Event ID
- *
- */
-typedef enum {
-    SCREEN_UPDATE, /*!< GPS information has been updated */
-    ENCRYPTION_UPDATE,
-    GPS_UNKNOWN /*!< Unknown statements detected */
-} nmea_event_id_t;
-
-/**
  * @brief Init NMEA Parser
  *
  * @param config Configuration of NMEA Parser
@@ -182,38 +173,27 @@ nmea_parser_handle_t nmea_parser_init(const nmea_parser_config_t *config);
  */
 esp_err_t nmea_parser_deinit(nmea_parser_handle_t nmea_hdl);
 
-/**
- * @brief Add user defined handler for NMEA parser
- *
- * @param nmea_hdl handle of NMEA parser
- * @param event_handler user defined event handler
- * @param handler_args handler specific arguments
- * @return esp_err_t
- *  - ESP_OK: Success
- *  - ESP_ERR_NO_MEM: Cannot allocate memory for the handler
- *  - ESP_ERR_INVALIG_ARG: Invalid combination of event base and event id
- *  - Others: Fail
- */
-esp_err_t nmea_parser_add_handler(nmea_parser_handle_t nmea_hdl, esp_event_handler_t event_handler, void *handler_args, nmea_event_id_t event_base);
-
-/**
- * @brief Remove user defined handler for NMEA parser
- *
- * @param nmea_hdl handle of NMEA parser
- * @param event_handler user defined event handler
- * @return esp_err_t
- *  - ESP_OK: Success
- *  - ESP_ERR_INVALIG_ARG: Invalid combination of event base and event id
- *  - Others: Fail
- */
-esp_err_t nmea_parser_remove_handler(nmea_parser_handle_t nmea_hdl, esp_event_handler_t event_handler, nmea_event_id_t event_base);
 
 /**
  * @brief Logs gps data to stdout
  * 
- * @param gps pointer to gps struct
+ * @param nmea_hndl returned from nmea_parser_init
  */
-void gps_debug(gps_t* gps);
+void gps_debug(nmea_parser_handle_t nmea_hndl);
+
+/* GPS Coordinate */
+typedef struct coordinates {
+    float lat;
+    float lon;
+} coordinates_t;
+
+/**
+ * @brief Returns lat/lon of the GPS in a thread-safe manner.
+ * 
+ * @param nmea_hndl returned from nmea_parser_init
+ * @return coordinates_t with lat/lon of `gps`
+ */
+coordinates_t read_gps(nmea_parser_handle_t nmea_hndl);
 
 #ifdef __cplusplus
 }
