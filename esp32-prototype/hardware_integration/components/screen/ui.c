@@ -289,8 +289,6 @@ void screen_main_task(void *arg)
     screen_task_params_t* args = (screen_task_params_t*)arg;
     nmea_parser_handle_t nmea_hndl = args->nmea_hndl;
     imu_data_t* global_imu = args->global_imu;
-    QueueHandle_t* screen_lora_event_queue = args->screen_lora_event_queue;
-    // start_screen();
     ESP_LOGI(SCREEN_TAG, "Starting screen_main_task");
     uint32_t time_till_next_ms = 0;
     uint32_t time_threshold_ms = 1000 / CONFIG_FREERTOS_HZ;

@@ -195,27 +195,28 @@ void task_both(void *p)
     xQueueSendToFront(screen_lora_event_queue, &packet_tx, portMAX_DELAY);
     lora_send_packet((uint8_t *)&packet_tx.counter_val, sizeof(uint32_t));
 
-    /* Try to receive for 500 ms */
-    // uint32_t start_ms =  pdTICKS_TO_MS(xTaskGetTickCount());
-    // uint32_t end_ms = start_ms + 500;
+    /* 500 ms interval to send and listen for one message. */
+    uint32_t start_ticks =  xTaskGetTickCount();
+    uint32_t end_ticks = start_ticks + pdMS_TO_TICKS(500);
   
     lora_receive(false);
     bool received;
-    while (!(received = lora_received())) { vTaskDelay(pdMS_TO_TICKS(25)); }
+    while (!(received = lora_received()) && xTaskGetTickCount() < end_ticks) { vTaskDelay(pdMS_TO_TICKS(25)); }
 
     if (received) {
       int bytes_read = lora_receive_packet((uint8_t *)&buf, sizeof(uint32_t));
       if (bytes_read > 0) {
-        ESP_LOGI("[RX]", "%d bytes, counter: %ld", bytes_read, (uint32_t)buf[0]);
-        packet_rx.counter_val = (uint32_t)buf[0];
+        ESP_LOGI("[RX]", "%d bytes, counter: %ld", bytes_read, ((uint32_t*)buf)[0]);
+        packet_rx.counter_val = ((uint32_t*)buf)[0];
         xQueueSendToFront(screen_lora_event_queue, &packet_rx, portMAX_DELAY);
       }
     }
 
     packet_tx.counter_val++;
-    /* Could delay for longer to space out tx messages if we rx messages quick,
-    could also create variables to control how often tx sends */
-    vTaskDelay(1);
+    
+    uint32_t cur = xTaskGetTickCount();
+    uint32_t delay_ticks = (cur < end_ticks) ? end_ticks - cur : 1;
+    vTaskDelay(delay_ticks);
   }
 }
 
@@ -294,10 +295,10 @@ void lora_task(void *pvParam)
 
   lora_config();
   /* Start an actual task for the radio... */
-  task_rx(NULL);
+  // task_rx(NULL);
   // task_tx(NULL);
   // task_both_gps(NULL);
-  // task_both(NULL);
+  task_both(NULL);
   // task_lora_rx(NULL);
 }
 
@@ -325,7 +326,7 @@ void app_main()
   };
 
   /* Initialize hardware for the screen, and start LVGL.*/
-  // start_screen();
+  start_screen();
 
   /* lvgl_timer_task is to counter lvgl ticks while calibration task runs, could just make calibration_task spawn it and kill it. */
   // xTaskCreate(lvgl_timer_task, "lvgl timer task", 4096, NULL, 8, NULL);
@@ -338,14 +339,14 @@ void app_main()
   Currently, this freed when screen_main_task cleans itself up (after the infinite loop) */
   /* tbh idk if storing all this on the heap is really cleaner than just using static memory...  but, I feel like it's not that bad */
 
-  // screen_task_params_t *screen_params = malloc(sizeof(screen_task_params_t));
+  screen_task_params_t *screen_params = malloc(sizeof(screen_task_params_t));
   // screen_params->screen_lora_event_queue = xQueueCreate(10, sizeof(struct lora_packet));
-  // /* TODO: Cleanup global_imu... Make a thread_safe ds similar to gps_t in nmea_parser.c */
-  // screen_params->global_imu = &global_imu;
-  // screen_params->nmea_hndl = nmea_hndl;
+  /* TODO: Cleanup global_imu... Make a thread_safe ds similar to gps_t in nmea_parser.c */
+  screen_params->global_imu = &global_imu;
+  screen_params->nmea_hndl = nmea_hndl;
 
   screen_lora_event_queue = xQueueCreate(20, sizeof(struct lora_packet));
 
   xTaskCreate(&lora_task, "lora_task", 4096, NULL, 5, NULL);
-  // xTaskCreate(screen_main_task, "Minimap", LVGL_TASK_STACK_SIZE, screen_params, LVGL_TASK_PRIORITY, NULL);
+  xTaskCreate(screen_main_task, "Minimap", LVGL_TASK_STACK_SIZE, screen_params, LVGL_TASK_PRIORITY, NULL);
 }
