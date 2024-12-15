@@ -357,6 +357,7 @@ void calibrate_mag_with_output(calibration_t* cal_mpu_x)
 /* Screen task that prompts the user for calibration, blocks until a button is pressed
 which chooses whether to calibration, then renders the steps for calibration and
 writes the values into the provided cal pointer in pvParam. */
+// Note: Not actually a task
 void calibrate_task(void *pvParam){
   /* 
   - Needs pointer to cal struct 
@@ -374,9 +375,12 @@ void calibrate_task(void *pvParam){
     }
   }
 
+  // Right button press (we do want to calibrate)
+
   /* lvgl_timer_task is to counter lvgl ticks while calibration task runs, could just make calibration_task spawn it and kill it. */
-  TaskHandle_t timer_task;
-  xTaskCreate(lvgl_timer_task, "lvgl timer task", 4096, NULL, 8, &timer_task);
+  
+  TaskHandle_t timer_handle;
+  xTaskCreate(lvgl_timer_task, "lvgl timer task", 4096, NULL, 8, &timer_handle);
 
   i2c_mpu9250_init(&cal);
 
@@ -384,5 +388,5 @@ void calibrate_task(void *pvParam){
   calibrate_accel_with_output(imu_cal);
   calibrate_mag_with_output(imu_cal);
   clear_screen();
-  vTaskDelete(NULL);
+  vTaskDelete(timer_handle);
 }

@@ -63,6 +63,7 @@ calibration_t cal_mpu9250_6500 = {
 calibration_t *cal = &cal_mpu92_65;
 
 
+
 void run_imu(void)
 {
   i2c_mpu9250_init(cal);
@@ -333,6 +334,7 @@ void app_main()
   /* Calibrate_task returns and does not infinite loop, so it's ok to use stack memory.
   app_main runs this to completion before executing the next line of code.  */
   // xTaskCreate(calibrate_task, "calibration", 4096, &calibrate_params, 5, NULL);
+
   calibrate_task(&calibrate_params);
 
 
