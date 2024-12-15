@@ -98,6 +98,7 @@ void transform_to_screen(pos_t *pos, float heading_angle) {
  */
 void draw_bubble(pos_t *position, char *label) {
   /* Initialize style for the bubble */
+  _lock_acquire(&lvgl_api_lock);
   static lv_style_t style_bubble;
   lv_style_init(&style_bubble);
   lv_style_set_radius(&style_bubble, 20); // Set the radius for rounded corners
@@ -117,6 +118,7 @@ void draw_bubble(pos_t *position, char *label) {
   lv_label_set_text(label_obj, label); // Set the label text
   lv_obj_set_style_text_color(label_obj, lv_color_hex(0xFFFFFF), LV_PART_MAIN); // Set text color
   lv_obj_align_to(label_obj, bubble_obj, LV_ALIGN_OUT_BOTTOM_MID, 0, 10); // Align the label to bubble
+  _lock_release(&lvgl_api_lock);
 }
 
 /**
@@ -244,10 +246,12 @@ void display_text(char* text)
 /* Clears the screen */
 void clear_screen(void) 
 {
+  _lock_acquire(&lvgl_api_lock);
   lv_obj_clean(lv_screen_active());
   lv_obj_set_style_bg_color(lv_screen_active(), 
                           lv_color_hex(0x020C0E),
                           LV_PART_MAIN);
+  _lock_release(&lvgl_api_lock);
 }
 
 

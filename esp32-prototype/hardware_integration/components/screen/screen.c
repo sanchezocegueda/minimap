@@ -58,6 +58,21 @@ void increase_lvgl_tick(void *arg)
     lv_tick_inc(LVGL_TICK_PERIOD_MS);
 }
 
+void lvgl_timer_task(void* pvParam) {
+    ESP_LOGI(SCREEN_TAG, "Starting LVGL timer task");
+    uint32_t time_till_next_ms = 0;
+    uint32_t time_threshold_ms = 1000 / CONFIG_FREERTOS_HZ;
+    while (1) {
+        _lock_acquire(&lvgl_api_lock);
+
+        time_till_next_ms = lv_timer_handler();
+        _lock_release(&lvgl_api_lock);
+        // in case of triggering a task watch dog time out
+        time_till_next_ms = MAX(time_till_next_ms, time_threshold_ms);
+        usleep(1000 * time_till_next_ms);
+    }
+}
+
 /* Setup SPI for screen, initialize ESP LCD and LVGL. No rendering is done. */
 void start_screen(void) {
     ESP_LOGI(SCREEN_TAG, "Initialize SPI bus");
@@ -152,4 +167,5 @@ void start_screen(void) {
     };
     /* Register done callback */
     ESP_ERROR_CHECK(esp_lcd_panel_io_register_event_callbacks(io_handle, &cbs, display));
+    clear_screen();
 }

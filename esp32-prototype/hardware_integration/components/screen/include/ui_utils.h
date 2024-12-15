@@ -74,10 +74,6 @@ void display_line_1(char* text);
 void display_line_2(char* text);
 void display_line_3(char* text);
 
-
-// Clears the screen
-void clear_screen(void);
-
 void calibrate_task(void *pvParam);
 
 #endif

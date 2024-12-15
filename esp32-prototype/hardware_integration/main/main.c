@@ -275,7 +275,8 @@ void app_main()
     .button_event_queue = button_event_queue,
     .cal_x = cal,
   };
-
+  start_screen();
+  xTaskCreate(lvgl_timer_task, "lvgl timer task", 4096, NULL, 8, NULL);
   /* Calibrate_task returns and does not infinite loop, so it's ok to use stack memory.
   app_main runs this to completion before executing the next line of code.  */
   xTaskCreate(calibrate_task, "calibration", 4096, &calibrate_params, 5, NULL);
@@ -284,8 +285,7 @@ void app_main()
   Currently, this freed when screen_main_task cleans itself up (after the infinite loop) */
 
   /* tbh idk if storing all this on the heap is really cleaner than just using static memory...  but, I feel like it's not that bad */
-  // screen_task_params_t *screen_params = malloc(sizeof(screen_task_params_t));
-  // *screen_params->screen_lora_event_queue = xQueueCreate(5, sizeof(struct lora_packet));
+  // screen_task_params_t *screen_params = malloc(sizeof(screen_task_params_t)); // *screen_params->screen_lora_event_queue = xQueueCreate(5, sizeof(struct lora_packet));
   // /* TODO: Cleanup global_imu... Make a thread_safe ds similar to gps_t in nmea_parser.c */
   // screen_params->global_imu = &global_imu;
   // screen_params->nmea_hndl = nmea_hndl;

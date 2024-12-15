@@ -59,11 +59,14 @@ const int NUM_GYRO_READS = 5000;
 
 void calibrate_gyro_with_output(calibration_t* cal_mpu_x)
 {
+  wait(1);
   display_text("--- GYRO CALIBRATION ---");
-  countdown(10);
+  wait(1);
+  countdown(5);
   display_text("Keep the MPU very still.");
   wait(1);
   display_text("Calculating gyroscope bias...");
+  wait(1);
 
   vector_t vg_sum;
   vg_sum.x = 0.0;
@@ -89,12 +92,12 @@ void calibrate_gyro_with_output(calibration_t* cal_mpu_x)
   vg_sum.z /= -NUM_GYRO_READS;
 
   // Copy the values into our struct
-  // cal_mpu_x->gyro_bias_offset = {.}
-  // cal_mpu_x->gyro_bias_offset = {x = vg_sum.x, .y = vg_sum.y, .z = vg_sum.z};
   cal_mpu_x->gyro_bias_offset = vg_sum;
   
+  ESP_LOGW("[CALIBRATION]\n", "    .gyro_bias_offset = {.x = %f, .y = %f, .z = %f}\n", vg_sum.x, vg_sum.y, vg_sum.z);
 
   display_text("Finished calibrating gyroscope");
+  wait(1);
 }
 
 /**
@@ -139,6 +142,7 @@ void calibrate_accel_axis(int axis, int dir)
   vector_t va;
 
   display_text("Reading values - hold still");
+  wait(1);
   for (int i = 0; i < NUM_ACCEL_READS; i++)
   {
     get_accel(&va);
@@ -208,8 +212,9 @@ void run_next_capture(int axis, int dir)
   char buf[32];
   sprintf(buf, "Point the %s axis arrow %s.", axes[axis], directions[dir]);
   display_text(buf);
+  wait(3);
 
-  countdown(10);
+  countdown(5);
   calibrate_accel_axis(axis, dir);
 }
 
@@ -219,6 +224,7 @@ void calibrate_accel_with_output(calibration_t* cal_mpu_x)
 {
 
   display_text("--- ACCEL CALIBRATION ---");
+  wait(1);
 
   run_next_capture(X_AXIS, DIR_UP);
   run_next_capture(X_AXIS, DIR_DOWN);
@@ -248,6 +254,11 @@ void calibrate_accel_with_output(calibration_t* cal_mpu_x)
   cal_mpu_x->accel_scale_hi.x = scale_hi.x;
   cal_mpu_x->accel_scale_hi.y = scale_hi.y;
   cal_mpu_x->accel_scale_hi.z = scale_hi.z;
+
+  ESP_LOGW("[CALIBRATION]\n", "    .accel_offset = {.x = %f, .y = %f, .z = %f},\n    .accel_scale_lo = {.x = %f, .y = %f, .z = %f},\n    .accel_scale_hi = {.x = %f, .y = %f, .z = %f},\n",
+         offset.x, offset.y, offset.z,
+         scale_lo.x, scale_lo.y, scale_lo.z,
+         scale_hi.x, scale_hi.y, scale_hi.z);
 
 }
 
@@ -290,6 +301,7 @@ void calibrate_mag_with_output(calibration_t* cal_mpu_x)
   sprintf(buf1, "  x        y        z      min x     min y     min z     max x     max y     max z");
   display_line_0(buf0);
   display_line_1(buf1);
+  wait(1);
 
   char buf2[96];
 
@@ -306,10 +318,11 @@ void calibrate_mag_with_output(calibration_t* cal_mpu_x)
 
 
     sprintf(buf2, " %0.3f    %0.3f    %0.3f    %0.3f   %0.3f   %0.3f   %0.3f   %0.3f   %0.3f", vm.x, vm.y, vm.z, v_min.x, v_min.y, v_min.z, v_max.x, v_max.y, v_max.z);
-    clear_screen();
-    display_line_0(buf0);
-    display_line_1(buf1);
-    display_line_2(buf2);
+    // clear_screen();
+    // display_line_0(buf0);
+    // display_line_1(buf1);
+    // display_line_2(buf2);
+    // wait(1);
 
     vTaskDelay(10 / portTICK_PERIOD_MS);
   }
@@ -332,7 +345,12 @@ void calibrate_mag_with_output(calibration_t* cal_mpu_x)
   cal_mpu_x->mag_scale.y = v_scale.y;
   cal_mpu_x->mag_scale.z = v_scale.z;
 
+
+  ESP_LOGW("[CALIBRATION]\n", "    .mag_offset = {.x = %f, .y = %f, .z = %f},\n", (v_min.x + v_max.x) / 2, (v_min.y + v_max.y) / 2, (v_min.z + v_max.z) / 2);
+  ESP_LOGW("[CALIBRATION]\n", "    .mag_scale = {.x = %f, .y = %f, .z = %f},\n", v_scale.x, v_scale.y, v_scale.z);
+
   display_text("Magnetometer calibration complete");
+  wait(1);
 }
 
 
@@ -344,7 +362,6 @@ void calibrate_task(void *pvParam){
   - Needs pointer to cal struct 
   - Needs button event queue
   */
-  start_screen();
   calibrate_screen_params_t* args = (calibrate_screen_params_t*) pvParam;
   calibration_t* imu_cal = (calibration_t*) args;
   QueueHandle_t* button_event_queue = (QueueHandle_t*) args;
@@ -359,10 +376,9 @@ void calibrate_task(void *pvParam){
   // }
   i2c_mpu9250_init(&cal);
 
-  _lock_acquire(&lvgl_api_lock);
-  ESP_LOGI("We have lock", "");
-  calibrate_gyro_with_output(imu_cal);
-  calibrate_accel_with_output(imu_cal);
+  // calibrate_gyro_with_output(imu_cal);
+  // calibrate_accel_with_output(imu_cal);
   calibrate_mag_with_output(imu_cal);
-  _lock_release(&lvgl_api_lock);
+  clear_screen();
+  vTaskDelete(NULL);
 }

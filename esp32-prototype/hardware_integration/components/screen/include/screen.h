@@ -61,4 +61,8 @@ void rotate_esp_lcd(lv_display_t *disp);
 
 bool notify_lvgl_flush_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx);
 
+void lvgl_timer_task(void* pvParam);
+
+void clear_screen(void);
+
 #endif
