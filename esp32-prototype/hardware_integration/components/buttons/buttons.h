@@ -20,7 +20,7 @@ typedef enum {
 void left_cb(void* arg, void *usr_data);
 void right_cb(void* arg, void *usr_data);
 
-/* Task to handle button interrupts. Needs button_event_queue passed to it. */
+/* Task to handle button interrupts. */
 void button_listener(void* arg);
 
 /* Create an IDF, GPIO button attached to GPIO_PIN. */

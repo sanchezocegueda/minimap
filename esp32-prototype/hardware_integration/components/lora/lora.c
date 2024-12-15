@@ -200,11 +200,16 @@ lora_sleep(void)
 /**
  * Sets the radio transceiver in receive mode.
  * Incoming packets will be received.
+ * Pass true for single, false for continuous
  */
 void 
-lora_receive(void)
+lora_receive(bool mode)
 {
-   lora_write_reg(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_RX_CONTINUOUS);
+   if (mode == true) {
+      lora_write_reg(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_RX_SINGLE);
+   } else {
+      lora_write_reg(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_RX_CONTINUOUS);
+   }
 }
 
 /**
@@ -384,24 +389,49 @@ lora_init(void)
       vTaskDelay(2);
    }
    assert(i <= TIMEOUT_RESET + 1); // at the end of the loop above, the max value i can reach is TIMEOUT_RESET + 1
+   return 1;
+}
 
-   /*
-    * Default configuration.
-    */
+void lora_config(void)
+{
+   /* Sleep to allow writes to registers */
    lora_sleep();
+
    /* Reset FIFO base pointers. */
    lora_write_reg(REG_FIFO_RX_BASE_ADDR, 0);
    lora_write_reg(REG_FIFO_TX_BASE_ADDR, 0);
+
    /* Set bits 0:1 in LnaBoostHf to adjust LNA current for PA_BOOST. */
    lora_write_reg(REG_LNA, lora_read_reg(REG_LNA) | 0x03);
-   /* Set LowDataRateOptimize to increase robustness of the LoRa link at low data rates. */
+
+   /* TODO: Should we set LowDataRateOptimize to increase robustness of the LoRa link at low data rates. */
+   /* Set LNA gain set by the internal AGC loop */
    lora_write_reg(REG_MODEM_CONFIG_3, 0x04);
+
    /* See page 79 of HOPERF manual. For now 17dBm is the max, we must configure the radio for 20dBm (shouldn't be too bad) */
    lora_set_tx_power(17);
 
-   lora_idle();
-   return 1;
+   /* 915MHz */
+   lora_set_frequency(915e6);
+
+   lora_enable_crc();
+
+   /* Set preamble length to 6 symbols */
+   lora_set_preamble_length(6);
+
+   /* 4/5 coding rate */
+   lora_set_coding_rate(5);
+
+   /* 125 kHz bandwidth */
+   lora_set_bandwidth(125000);
+
+   /* 6 spreading factor */
+   lora_set_spreading_factor(6);
+
+   /* Set the size of packets. Could be changed on the fly */
+   lora_implicit_header_mode(sizeof(uint32_t));
 }
+
 
 /**
  * Send a packet.
@@ -520,7 +550,7 @@ lora_receive_packet_blocking(uint8_t *buf, int size)
 {
    lora_write_reg(REG_DIO_MAPPING_1, DIO0_RX_DONE); /* Config DIO0 to interrupt when RxDone */
    __DIO0_RX = true;
-   lora_receive();
+   lora_receive(false);
    int event;
     ESP_LOGI("BLOCKING", "");
     if (xQueueReceive(lora_irq_queue, &event, 5000) && event == IRQ_FLAGS_RX_DONE) {

@@ -49,8 +49,7 @@ button_handle_t init_btn(gpio_num_t gpio_pin) {
     return btn;
 }
 
-/* TODO: Not quite sure where we want the queue. For now it's defined in main.c
-and that address is passed to this function. */
+/* TODO: Not quite sure where we want the queue. For now it's defined in main.c */
 
 /* Setup GPIO for the buttons and creates a queue and a listener task for button events.
 In order to use the buttons, register callback functions with iot_button_register_cb. */

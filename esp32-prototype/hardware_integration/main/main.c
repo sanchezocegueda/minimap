@@ -155,17 +155,19 @@ void task_rx(void *p)
 
   for (;;)
   {
-    lora_receive();
-    while (lora_received())
-    {
+    lora_receive(false);
+    bool received;
+    while (!(received = lora_received())) { vTaskDelay(pdMS_TO_TICKS(25)); }
+
+    if (received) {
       int bytes_read = lora_receive_packet(buf, sizeof(uint32_t));
       if (bytes_read > 0) {
         ESP_LOGI("[RX]", "%d bytes, counter: %ld", bytes_read, (uint32_t)buf[0]);
         packet_rx.counter_val = (uint32_t)buf[0];
         xQueueSend(screen_lora_event_queue, &packet_rx, portMAX_DELAY);
       }
-      lora_receive();
     }
+
     vTaskDelay(1);
   }
 }
@@ -174,6 +176,7 @@ void task_rx(void *p)
 void task_both(void *p)
 {
   ESP_LOGI("[task_both]", "started");
+
   lora_packet_t packet_tx = {
     .counter_val = 0,
     .tx_rx = 0,
@@ -185,6 +188,7 @@ void task_both(void *p)
   };
 
   uint8_t buf[sizeof(uint32_t)];
+
   for (;;)
   {
     ESP_LOGI("[TX]", "counter: %ld", packet_tx.counter_val);
@@ -192,20 +196,22 @@ void task_both(void *p)
     lora_send_packet((uint8_t *)&packet_tx.counter_val, sizeof(uint32_t));
 
     /* Try to receive for 500 ms */
-    lora_receive();
-    uint32_t start_ms =  pdTICKS_TO_MS(xTaskGetTickCount());
-    uint32_t end_ms = start_ms + 500;
+    // uint32_t start_ms =  pdTICKS_TO_MS(xTaskGetTickCount());
+    // uint32_t end_ms = start_ms + 500;
   
-    while (lora_received() && pdTICKS_TO_MS(xTaskGetTickCount()) < end_ms) {
+    lora_receive(false);
+    bool received;
+    while (!(received = lora_received())) { vTaskDelay(pdMS_TO_TICKS(25)); }
+
+    if (received) {
       int bytes_read = lora_receive_packet((uint8_t *)&buf, sizeof(uint32_t));
       if (bytes_read > 0) {
-        packet_rx.counter_val = (uint32_t)buf[0];
         ESP_LOGI("[RX]", "%d bytes, counter: %ld", bytes_read, (uint32_t)buf[0]);
+        packet_rx.counter_val = (uint32_t)buf[0];
         xQueueSendToFront(screen_lora_event_queue, &packet_rx, portMAX_DELAY);
-        break;
       }
-      lora_receive();
     }
+
     packet_tx.counter_val++;
     /* Could delay for longer to space out tx messages if we rx messages quick,
     could also create variables to control how often tx sends */
@@ -217,16 +223,27 @@ void task_both(void *p)
 void task_both_gps(void *p)
 {
   ESP_LOGI("[task both gps]", "started");
+
+  /* Change payload length to match GPS data */
+  lora_implicit_header_mode(sizeof(coordinates_t));
+
   coordinates_t buf;
   int bytes_read;
   for (;;)
   {
     send_lora_gps(nmea_hndl);
-    while (lora_received()) {
+
+    lora_receive(false);
+    bool received;
+    while (!(received = lora_received())) { vTaskDelay(pdMS_TO_TICKS(25)); }
+
+    if (received) {
       int bytes_read = lora_receive_packet((uint8_t *)&buf, sizeof(coordinates_t));
-      ESP_LOGI("[LORA_RX_GPS]", "Bytes read: %d, Lat: %0.5f, Long: %0.5f", bytes_read, buf.lat, buf.lon);
+      if (bytes_read > 0) {
+        ESP_LOGI("[LORA_RX_GPS]", "Bytes read: %d, Lat: %0.5f, Long: %0.5f", bytes_read, buf.lat, buf.lon);
+        other = buf;
+      }
     }
-    other = buf;
     vTaskDelay(1);
   }
 }
@@ -247,14 +264,23 @@ void send_lora_gps(nmea_parser_handle_t nmea_hndl)
 /* Task for receiving GPS over lora */
 void receive_lora_gps(void *)
 {
+  ESP_LOGI("[LORA_RX_GPS]", "started");
+
+  /* Change payload length to match GPS data */
+  lora_implicit_header_mode(sizeof(coordinates_t));
+
   coordinates_t buf;
   for (;;)
   {
-    lora_receive();
-    while (lora_received())
-    {
+    lora_receive(false);
+    bool received;
+    while (!(received = lora_received())) { vTaskDelay(pdMS_TO_TICKS(25)); }
+
+    if (received) {
       int bytes_read = lora_receive_packet((uint8_t *)&buf, sizeof(coordinates_t));
-      ESP_LOGI("[LORA_RX_GPS]", "Bytes read: %d, Lat: %0.5f, Long: %0.5f", bytes_read, buf.lat, buf.lon);
+      if (bytes_read > 0) {
+        ESP_LOGI("[LORA_RX_GPS]", "Bytes read: %d, Lat: %0.5f, Long: %0.5f", bytes_read, buf.lat, buf.lon);
+      }
     }
     vTaskDelay(1);
   }
@@ -263,19 +289,15 @@ void receive_lora_gps(void *)
 /* Main RTOS Lora task that does hardware initialization. */
 void lora_task(void *pvParam)
 {
-  // QueueHandle_t *screen_lora_event_queue = (QueueHandle_t *)pvParam;
   /* Setup Lora Radio */
-  lora_init();
-  /* Move to a configuration function in lora.c along with the end of lora_init */
-  lora_set_frequency(915e6);
-  lora_enable_crc();
-  /* Set spreading factor, bandwidth, sync word, implicit header mode (and all that follows)*/
+  assert(1 == lora_init());
 
+  lora_config();
   /* Start an actual task for the radio... */
-  // task_rx(NULL);
+  task_rx(NULL);
   // task_tx(NULL);
   // task_both_gps(NULL);
-  task_both(NULL);
+  // task_both(NULL);
   // task_lora_rx(NULL);
 }
 
@@ -301,12 +323,16 @@ void app_main()
     .button_event_queue = NULL, // FIXME: IGNORE for now...
     .cal_x = cal,
   };
+
+  /* Initialize hardware for the screen, and start LVGL.*/
   // start_screen();
+
   /* lvgl_timer_task is to counter lvgl ticks while calibration task runs, could just make calibration_task spawn it and kill it. */
   // xTaskCreate(lvgl_timer_task, "lvgl timer task", 4096, NULL, 8, NULL);
+
   /* Calibrate_task returns and does not infinite loop, so it's ok to use stack memory.
   app_main runs this to completion before executing the next line of code.  */
-  xTaskCreate(calibrate_task, "calibration", 4096, &calibrate_params, 5, NULL);
+  // xTaskCreate(calibrate_task, "calibration", 4096, &calibrate_params, 5, NULL);
 
   /* Malloc screen parameters for GPS data, counter data, imu data, and pass to lora task and screen task.
   Currently, this freed when screen_main_task cleans itself up (after the infinite loop) */

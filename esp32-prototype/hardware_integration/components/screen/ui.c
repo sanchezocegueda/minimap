@@ -295,7 +295,6 @@ void screen_main_task(void *arg)
     uint32_t time_till_next_ms = 0;
     uint32_t time_threshold_ms = 1000 / CONFIG_FREERTOS_HZ;
     while (1) {
-        // Lock the mutex due to the LVGL APIs are not thread-safe
         /* Draw the background. */
         clear_screen();
         /* Call some UI function or react on some logic ... */
@@ -304,6 +303,7 @@ void screen_main_task(void *arg)
         // varun_ui(display);
         // in case of triggering a task watch dog time out
 
+        // Lock the mutex due to the LVGL APIs are not thread-safe
         _lock_acquire(&lvgl_api_lock);
         time_till_next_ms = lv_timer_handler();
         _lock_release(&lvgl_api_lock);
