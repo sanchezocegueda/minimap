@@ -58,6 +58,6 @@ void init_buttons(button_handle_t *left, button_handle_t *right)
     *left = init_btn(LEFT_BUTTON_PIN);
     *right = init_btn(RIGHT_BUTTON_PIN);
     button_event_queue = xQueueCreate(16, sizeof(minimap_button_event_t));
-    xTaskCreate(button_listener, "button listener", 2048, NULL, 10, NULL);
+    // xTaskCreate(button_listener, "button listener", 2048, NULL, 10, NULL);
     ESP_LOGI("BUTTON INIT DONE", "");
 }

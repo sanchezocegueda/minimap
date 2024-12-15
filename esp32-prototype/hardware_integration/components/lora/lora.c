@@ -122,7 +122,6 @@ lora_write_reg(int reg, int val)
       .tx_buffer = out,
       .rx_buffer = in  
    };
-
    gpio_set_level(CONFIG_LORA_CS_GPIO, 0);
    spi_device_transmit(__spi, &t);
    gpio_set_level(CONFIG_LORA_CS_GPIO, 1);
@@ -412,21 +411,20 @@ void lora_config(void)
    lora_set_tx_power(17);
 
    /* 915MHz */
-   lora_set_frequency(915e6);
+   lora_set_frequency(915E6);
 
    lora_enable_crc();
 
-   /* Set preamble length to 6 symbols */
-   lora_set_preamble_length(6);
+   /* Set preamble length to 12 symbols (default) */
+   lora_set_preamble_length(12);
 
-   /* 4/5 coding rate */
-   lora_set_coding_rate(5);
+   /* 4/8 coding rate */
+   lora_set_coding_rate(8);
 
    /* 125 kHz bandwidth */
-   lora_set_bandwidth(125000);
+   lora_set_bandwidth(125E3);
 
-   /* 6 spreading factor */
-   lora_set_spreading_factor(6);
+   lora_set_spreading_factor(12);
 
    /* Set the size of packets. Could be changed on the fly */
    lora_implicit_header_mode(sizeof(uint32_t));

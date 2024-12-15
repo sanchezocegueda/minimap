@@ -373,6 +373,11 @@ void calibrate_task(void *pvParam){
       return;
     }
   }
+
+  /* lvgl_timer_task is to counter lvgl ticks while calibration task runs, could just make calibration_task spawn it and kill it. */
+  TaskHandle_t timer_task;
+  xTaskCreate(lvgl_timer_task, "lvgl timer task", 4096, NULL, 8, &timer_task);
+
   i2c_mpu9250_init(&cal);
 
   calibrate_gyro_with_output(imu_cal);

@@ -192,16 +192,18 @@ void task_both(void *p)
   for (;;)
   {
     ESP_LOGI("[TX]", "counter: %ld", packet_tx.counter_val);
-    xQueueSendToFront(screen_lora_event_queue, &packet_tx, portMAX_DELAY);
     lora_send_packet((uint8_t *)&packet_tx.counter_val, sizeof(uint32_t));
+    xQueueSendToFront(screen_lora_event_queue, &packet_tx, portMAX_DELAY);
 
-    /* 500 ms interval to send and listen for one message. */
+    /* 3 second interval to send and listen for one message. */
     uint32_t start_ticks =  xTaskGetTickCount();
-    uint32_t end_ticks = start_ticks + pdMS_TO_TICKS(500);
-  
+    uint32_t end_ticks = start_ticks + pdMS_TO_TICKS(2500);
+
+    ESP_LOGW("[ASSERTING]", "coordinates_t: %u; uint32_t: %u", sizeof(coordinates_t), sizeof(uint32_t));
+
     lora_receive(false);
     bool received;
-    while (!(received = lora_received()) && xTaskGetTickCount() < end_ticks) { vTaskDelay(pdMS_TO_TICKS(25)); }
+    while (!(received = lora_received()) && xTaskGetTickCount() < end_ticks) { vTaskDelay(1); }
 
     if (received) {
       int bytes_read = lora_receive_packet((uint8_t *)&buf, sizeof(uint32_t));
@@ -328,12 +330,11 @@ void app_main()
   /* Initialize hardware for the screen, and start LVGL.*/
   start_screen();
 
-  /* lvgl_timer_task is to counter lvgl ticks while calibration task runs, could just make calibration_task spawn it and kill it. */
-  // xTaskCreate(lvgl_timer_task, "lvgl timer task", 4096, NULL, 8, NULL);
-
   /* Calibrate_task returns and does not infinite loop, so it's ok to use stack memory.
   app_main runs this to completion before executing the next line of code.  */
   // xTaskCreate(calibrate_task, "calibration", 4096, &calibrate_params, 5, NULL);
+  calibrate_task(&calibrate_params);
+
 
   /* Malloc screen parameters for GPS data, counter data, imu data, and pass to lora task and screen task.
   Currently, this freed when screen_main_task cleans itself up (after the infinite loop) */
