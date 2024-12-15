@@ -275,8 +275,8 @@ void calibrate_accel_with_output(calibration_t* cal_mpu_x)
  */
 
 // TODO: Move to header
-#define MIN(a, b) (a < b ? a : b)
-#define MAX(a, b) (a > b ? a : b)
+// #define MIN(a, b) (a < b ? a : b)
+// #define MAX(a, b) (a > b ? a : b)
 
 void calibrate_mag_with_output(calibration_t* cal_mpu_x)
 {
@@ -363,21 +363,20 @@ void calibrate_task(void *pvParam){
   - Needs button event queue
   */
   calibrate_screen_params_t* args = (calibrate_screen_params_t*) pvParam;
-  calibration_t* imu_cal = (calibration_t*) args;
-  QueueHandle_t* button_event_queue = (QueueHandle_t*) args;
-  /* Block unti for a button press. */
+  calibration_t* imu_cal = args->cal_x;
+  /* Block until a button press. */
   minimap_button_event_t press;
-  ESP_LOGI("We about to sleep", "");
-  // if (xQueueReceive(*button_event_queue, &press, portMAX_DELAY)) {
-  //   /* On left button press, we don't calibrate */
-  //   if (press == LEFT_PRESS) {
-  //     return;
-  //   }
-  // }
+  ESP_LOGI("[CALIBRATION]", "Waiting 5 seconds for user to press a button to calibrate");
+  if (xQueueReceive(button_event_queue, &press, pdMS_TO_TICKS(5000))) {
+    /* On left button press, we don't calibrate */
+    if (press == LEFT_PRESS) {
+      return;
+    }
+  }
   i2c_mpu9250_init(&cal);
 
-  // calibrate_gyro_with_output(imu_cal);
-  // calibrate_accel_with_output(imu_cal);
+  calibrate_gyro_with_output(imu_cal);
+  calibrate_accel_with_output(imu_cal);
   calibrate_mag_with_output(imu_cal);
   clear_screen();
   vTaskDelete(NULL);

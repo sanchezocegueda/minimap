@@ -35,13 +35,12 @@ void send_lora_gps();
 
 #define I2C_MASTER_NUM I2C_NUM_0 /* I2C port number for master dev */
 
-coordinates_t other;
-
 /* Global variable init */
 imu_data_t global_imu;
 nmea_parser_handle_t nmea_hndl;
-// QueueHandle_t button_event_queue;
+QueueHandle_t button_event_queue;
 QueueHandle_t screen_lora_event_queue;
+coordinates_t other;
 
 /* IMU Calibration, set accordingly in run_imu */
 calibration_t cal_mpu92_65 = {
@@ -130,19 +129,17 @@ static void imu_task(void *arg)
 void task_tx(void *p)
 {
   ESP_LOGI("[TX]", "started");
-  // QueueHandle_t *screen_lora_event_queue = (QueueHandle_t *)p;
-  static uint32_t counter = 0;
-  static lora_packet_t packet_tx;
-  packet_tx.tx_rx = 0; // indicate that this is transmitter
+  lora_packet_t packet_tx = {
+    .tx_rx = 0, // indicate that this is transmitter
+    .counter_val = 0,
+  };
   for (;;)
   {
-    // counter = rand(); I think the counter should be strictly increasing so we know if we missed a transmission
-    lora_send_packet((uint8_t *)&counter, 4);
-    ESP_LOGI("[TX]", "counter: %ld", counter);
-    packet_tx.counter_val = counter;
+    lora_send_packet((uint8_t *)&packet_tx.counter_val, sizeof(uint32_t));
+    ESP_LOGI("[TX]", "counter: %ld", packet_tx.counter_val);
     xQueueSendToFront(screen_lora_event_queue, &packet_tx, portMAX_DELAY);
-    counter++;
-    vTaskDelay(pdMS_TO_TICKS(500));
+    packet_tx.counter_val++;
+    vTaskDelay(pdMS_TO_TICKS(500)); // Send a tx every 500 ms
   }
 }
 
@@ -150,22 +147,26 @@ void task_tx(void *p)
 void task_rx(void *p)
 {
   ESP_LOGI("[RX]", "started");
-  // QueueHandle_t *screen_lora_event_queue = (QueueHandle_t *)p;
-  uint8_t buf[4];
-  int x;
-  static lora_packet_t packet_rx;
-  packet_rx.tx_rx = 1; // indicate that this is receiver
+  uint8_t buf[sizeof(uint32_t)];
+  lora_packet_t packet_rx = {
+    .counter_val = 0,
+    .tx_rx = 1, // indicate that this is receiver
+  };
+
   for (;;)
   {
     lora_receive();
     while (lora_received())
     {
-      x = lora_receive_packet(buf, sizeof(buf));
-      packet_rx.counter_val = x;
-      ESP_LOGI("[RX]", "%d bytes, counter: %ld", x, (uint32_t)buf[0]);
-      xQueueSend(screen_lora_event_queue, &packet_rx, portMAX_DELAY);
+      int bytes_read = lora_receive_packet(buf, sizeof(uint32_t));
+      if (bytes_read > 0) {
+        ESP_LOGI("[RX]", "%d bytes, counter: %ld", bytes_read, (uint32_t)buf[0]);
+        packet_rx.counter_val = (uint32_t)buf[0];
+        xQueueSend(screen_lora_event_queue, &packet_rx, portMAX_DELAY);
+      }
+      lora_receive();
     }
-    vTaskDelay(pdMS_TO_TICKS(500));
+    vTaskDelay(1);
   }
 }
 
@@ -173,35 +174,42 @@ void task_rx(void *p)
 void task_both(void *p)
 {
   ESP_LOGI("[task_both]", "started");
-  static lora_packet_t packet;
-  /* Send counter */
-  static uint32_t counter = 0;
-  /* Receive buffer*/
-  uint8_t buf[4];
-  int bytes_read;
+  lora_packet_t packet_tx = {
+    .counter_val = 0,
+    .tx_rx = 0,
+  };
+
+  lora_packet_t packet_rx = {
+    .counter_val = 0,
+    .tx_rx = 1,
+  };
+
+  uint8_t buf[sizeof(uint32_t)];
   for (;;)
   {
-    packet.counter_val = counter;
-    packet.tx_rx = 0;
-    xQueueSendToFront(screen_lora_event_queue, &packet, portMAX_DELAY);
-    lora_send_packet((uint8_t *)&counter, sizeof(uint32_t));
-    ESP_LOGI("[TX]", "counter: %ld", counter);
+    ESP_LOGI("[TX]", "counter: %ld", packet_tx.counter_val);
+    xQueueSendToFront(screen_lora_event_queue, &packet_tx, portMAX_DELAY);
+    lora_send_packet((uint8_t *)&packet_tx.counter_val, sizeof(uint32_t));
 
-    lora_idle();
-
-    // vTaskDelay(pdMS_TO_TICKS(500));
+    /* Try to receive for 500 ms */
     lora_receive();
+    uint32_t start_ms =  pdTICKS_TO_MS(xTaskGetTickCount());
+    uint32_t end_ms = start_ms + 500;
   
-    while (lora_received()) {
-      bytes_read = lora_receive_packet((uint8_t *)&buf, sizeof(uint32_t));
-      packet.counter_val = *((uint32_t*) buf);
-      packet.tx_rx = 1;
-      xQueueSendToFront(screen_lora_event_queue, &packet, portMAX_DELAY);
-      ESP_LOGI("[RX]", "%d bytes, counter: %ld", bytes_read, *((uint32_t *)buf));
+    while (lora_received() && pdTICKS_TO_MS(xTaskGetTickCount()) < end_ms) {
+      int bytes_read = lora_receive_packet((uint8_t *)&buf, sizeof(uint32_t));
+      if (bytes_read > 0) {
+        packet_rx.counter_val = (uint32_t)buf[0];
+        ESP_LOGI("[RX]", "%d bytes, counter: %ld", bytes_read, (uint32_t)buf[0]);
+        xQueueSendToFront(screen_lora_event_queue, &packet_rx, portMAX_DELAY);
+        break;
+      }
       lora_receive();
     }
-    counter++;
-    vTaskDelay(pdMS_TO_TICKS(500));
+    packet_tx.counter_val++;
+    /* Could delay for longer to space out tx messages if we rx messages quick,
+    could also create variables to control how often tx sends */
+    vTaskDelay(1);
   }
 }
 
@@ -264,11 +272,11 @@ void lora_task(void *pvParam)
   /* Set spreading factor, bandwidth, sync word, implicit header mode (and all that follows)*/
 
   /* Start an actual task for the radio... */
-  // task_rx(screen_lora_event_queue);
-  // task_tx(screen_lora_event_queue);
-  // task_both_gps(screen_lora_event_queue);
-  task_both(screen_lora_event_queue);
-  // task_lora_rx(screen_lora_event_queue);
+  // task_rx(NULL);
+  // task_tx(NULL);
+  // task_both_gps(NULL);
+  task_both(NULL);
+  // task_lora_rx(NULL);
 }
 
 void app_main()
@@ -282,8 +290,7 @@ void app_main()
 
   /* Setup buttons */
   button_handle_t left_btn, right_btn;
-  QueueHandle_t* button_event_queue = malloc(sizeof(QueueHandle_t*));
-  init_buttons(&left_btn, &right_btn, button_event_queue);
+  init_buttons(&left_btn, &right_btn);
 
   /* Register default debugging callback functions. */
   iot_button_register_cb(left_btn, BUTTON_PRESS_DOWN, left_cb, NULL);
@@ -291,27 +298,28 @@ void app_main()
 
   /* Run calibration task. */
   calibrate_screen_params_t calibrate_params = {
-    .button_event_queue = button_event_queue,
+    .button_event_queue = NULL, // FIXME: IGNORE for now...
     .cal_x = cal,
   };
-  start_screen();
+  // start_screen();
+  /* lvgl_timer_task is to counter lvgl ticks while calibration task runs, could just make calibration_task spawn it and kill it. */
   // xTaskCreate(lvgl_timer_task, "lvgl timer task", 4096, NULL, 8, NULL);
   /* Calibrate_task returns and does not infinite loop, so it's ok to use stack memory.
   app_main runs this to completion before executing the next line of code.  */
-  // xTaskCreate(calibrate_task, "calibration", 4096, &calibrate_params, 5, NULL);
+  xTaskCreate(calibrate_task, "calibration", 4096, &calibrate_params, 5, NULL);
 
   /* Malloc screen parameters for GPS data, counter data, imu data, and pass to lora task and screen task.
   Currently, this freed when screen_main_task cleans itself up (after the infinite loop) */
   /* tbh idk if storing all this on the heap is really cleaner than just using static memory...  but, I feel like it's not that bad */
 
-  screen_task_params_t *screen_params = malloc(sizeof(screen_task_params_t));
+  // screen_task_params_t *screen_params = malloc(sizeof(screen_task_params_t));
   // screen_params->screen_lora_event_queue = xQueueCreate(10, sizeof(struct lora_packet));
-  /* TODO: Cleanup global_imu... Make a thread_safe ds similar to gps_t in nmea_parser.c */
-  screen_params->global_imu = &global_imu;
-  screen_params->nmea_hndl = nmea_hndl;
+  // /* TODO: Cleanup global_imu... Make a thread_safe ds similar to gps_t in nmea_parser.c */
+  // screen_params->global_imu = &global_imu;
+  // screen_params->nmea_hndl = nmea_hndl;
 
   screen_lora_event_queue = xQueueCreate(20, sizeof(struct lora_packet));
 
-  xTaskCreate(&lora_task, "lora_task", 4096, screen_params->screen_lora_event_queue, 5, NULL);
-  xTaskCreate(screen_main_task, "Minimap", LVGL_TASK_STACK_SIZE, screen_params, LVGL_TASK_PRIORITY, NULL);
+  xTaskCreate(&lora_task, "lora_task", 4096, NULL, 5, NULL);
+  // xTaskCreate(screen_main_task, "Minimap", LVGL_TASK_STACK_SIZE, screen_params, LVGL_TASK_PRIORITY, NULL);
 }

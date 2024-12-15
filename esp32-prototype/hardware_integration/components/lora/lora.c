@@ -523,20 +523,24 @@ lora_receive_packet_blocking(uint8_t *buf, int size)
    lora_receive();
    int event;
     ESP_LOGI("BLOCKING", "");
-    if (xQueueReceive(lora_irq_queue, &event, pdTICKS_TO_MS(1000)) && event == IRQ_FLAGS_RX_DONE) {
+    if (xQueueReceive(lora_irq_queue, &event, 5000) && event == IRQ_FLAGS_RX_DONE) {
+      /* Clear interrupts */
       int irq = lora_read_reg(REG_IRQ_FLAGS);
+      lora_write_reg(REG_IRQ_FLAGS, irq);
+      /* Check errors */
       if(irq & IRQ_FLAGS_PAYLOAD_CRC_ERROR) {
          ESP_LOGI("[DEBUG LORA BLOCKING]", "CRC error");
-         lora_write_reg(REG_IRQ_FLAGS, IRQ_FLAGS_PAYLOAD_CRC_ERROR | IRQ_FLAGS_RX_DONE); // clear bit in IRQ Status register
+         // lora_write_reg(REG_IRQ_FLAGS, IRQ_FLAGS_PAYLOAD_CRC_ERROR | IRQ_FLAGS_RX_DONE); // clear bit in IRQ Status register
          return 0;
       }
       if (irq & IRQ_FLAGS_RX_TIMEOUT) {
          ESP_LOGI("[DEBUG LORA BLOCKING]", "timeout");
-         lora_write_reg(REG_IRQ_FLAGS, IRQ_FLAGS_RX_TIMEOUT | IRQ_FLAGS_RX_DONE); // clear bit in IRQ Status register
+         // lora_write_reg(REG_IRQ_FLAGS, IRQ_FLAGS_RX_TIMEOUT | IRQ_FLAGS_RX_DONE); // clear bit in IRQ Status register
          return 0;
       }
       ESP_LOGI("[DEBUG LORA BLOCKING]", "No errors");
-      lora_write_reg(REG_IRQ_FLAGS, IRQ_FLAGS_RX_DONE); // clear bit in IRQ Status register
+      // lora_write_reg(REG_IRQ_FLAGS, IRQ_FLAGS_RX_DONE); // clear bit in IRQ Status register
+      /* Read fifo data */
       return lora_read_fifo(buf, size);
     }
     ESP_LOGI("timed out", "");

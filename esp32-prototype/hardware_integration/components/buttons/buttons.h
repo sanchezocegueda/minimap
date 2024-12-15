@@ -7,6 +7,8 @@
 #include "esp_log.h"
 #include "iot_button.h"
 
+extern QueueHandle_t button_event_queue;
+
 typedef enum {
     LEFT_PRESS,
     RIGHT_PRESS,
@@ -24,4 +26,4 @@ void button_listener(void* arg);
 /* Create an IDF, GPIO button attached to GPIO_PIN. */
 button_handle_t init_btn(gpio_num_t gpio_pin);
 
-void init_buttons(button_handle_t *left, button_handle_t *right, QueueHandle_t *button_event_queue);
+void init_buttons(button_handle_t *left, button_handle_t *right);

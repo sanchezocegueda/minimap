@@ -77,5 +77,6 @@ void display_line_3(char* text);
 void calibrate_task(void *pvParam);
 
 extern QueueHandle_t screen_lora_event_queue;
+extern QueueHandle_t button_event_queue;
 
 #endif
