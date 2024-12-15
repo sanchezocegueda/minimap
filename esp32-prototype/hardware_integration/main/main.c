@@ -41,7 +41,7 @@ coordinates_t other;
 imu_data_t global_imu;
 nmea_parser_handle_t nmea_hndl;
 // QueueHandle_t button_event_queue;
-// QueueHandle_t counter_event_queue;
+QueueHandle_t screen_lora_event_queue;
 
 /* IMU Calibration, set accordingly in run_imu */
 calibration_t cal_mpu92_65 = {
@@ -130,7 +130,7 @@ static void imu_task(void *arg)
 void task_tx(void *p)
 {
   ESP_LOGI("[TX]", "started");
-  QueueHandle_t *screen_lora_event_queue = (QueueHandle_t *)p;
+  // QueueHandle_t *screen_lora_event_queue = (QueueHandle_t *)p;
   static uint32_t counter = 0;
   static lora_packet_t packet_tx;
   packet_tx.tx_rx = 0; // indicate that this is transmitter
@@ -140,9 +140,9 @@ void task_tx(void *p)
     lora_send_packet((uint8_t *)&counter, 4);
     ESP_LOGI("[TX]", "counter: %ld", counter);
     packet_tx.counter_val = counter;
-    xQueueSendToFront(*screen_lora_event_queue, &packet_tx, portMAX_DELAY);
+    xQueueSendToFront(screen_lora_event_queue, &packet_tx, portMAX_DELAY);
     counter++;
-    vTaskDelay(pdMS_TO_TICKS(10000));
+    vTaskDelay(pdMS_TO_TICKS(500));
   }
 }
 
@@ -150,7 +150,7 @@ void task_tx(void *p)
 void task_rx(void *p)
 {
   ESP_LOGI("[RX]", "started");
-  QueueHandle_t *screen_lora_event_queue = (QueueHandle_t *)p;
+  // QueueHandle_t *screen_lora_event_queue = (QueueHandle_t *)p;
   uint8_t buf[4];
   int x;
   static lora_packet_t packet_rx;
@@ -163,9 +163,9 @@ void task_rx(void *p)
       x = lora_receive_packet(buf, sizeof(buf));
       packet_rx.counter_val = x;
       ESP_LOGI("[RX]", "%d bytes, counter: %ld", x, (uint32_t)buf[0]);
-      xQueueSend(*screen_lora_event_queue, &packet_rx, portMAX_DELAY);
+      xQueueSend(screen_lora_event_queue, &packet_rx, portMAX_DELAY);
     }
-    vTaskDelay(1);
+    vTaskDelay(pdMS_TO_TICKS(500));
   }
 }
 
@@ -173,19 +173,35 @@ void task_rx(void *p)
 void task_both(void *p)
 {
   ESP_LOGI("[task_both]", "started");
-  QueueHandle_t *screen_lora_event_queue = (QueueHandle_t *)p;
+  static lora_packet_t packet;
+  /* Send counter */
   static uint32_t counter = 0;
+  /* Receive buffer*/
   uint8_t buf[4];
   int bytes_read;
   for (;;)
   {
-    lora_send_packet_blocking((uint8_t *)&counter, 4);
+    packet.counter_val = counter;
+    packet.tx_rx = 0;
+    xQueueSendToFront(screen_lora_event_queue, &packet, portMAX_DELAY);
+    lora_send_packet((uint8_t *)&counter, sizeof(uint32_t));
     ESP_LOGI("[TX]", "counter: %ld", counter);
-    bytes_read = lora_receive_packet_blocking(buf, sizeof(buf));
 
-    ESP_LOGI("[RX]", "%d bytes, counter: %ld", bytes_read, *((uint32_t *)buf));
+    lora_idle();
+
+    // vTaskDelay(pdMS_TO_TICKS(500));
+    lora_receive();
+  
+    while (lora_received()) {
+      bytes_read = lora_receive_packet((uint8_t *)&buf, sizeof(uint32_t));
+      packet.counter_val = *((uint32_t*) buf);
+      packet.tx_rx = 1;
+      xQueueSendToFront(screen_lora_event_queue, &packet, portMAX_DELAY);
+      ESP_LOGI("[RX]", "%d bytes, counter: %ld", bytes_read, *((uint32_t *)buf));
+      lora_receive();
+    }
     counter++;
-    vTaskDelay(1);
+    vTaskDelay(pdMS_TO_TICKS(500));
   }
 }
 
@@ -198,8 +214,10 @@ void task_both_gps(void *p)
   for (;;)
   {
     send_lora_gps(nmea_hndl);
-    int bytes_read = lora_receive_packet_blocking((uint8_t *)&buf, sizeof(coordinates_t));
-    ESP_LOGI("[LORA_RX_GPS]", "Bytes read: %d, Lat: %0.5f, Long: %0.5f", bytes_read, buf.lat, buf.lon);
+    while (lora_received()) {
+      int bytes_read = lora_receive_packet((uint8_t *)&buf, sizeof(coordinates_t));
+      ESP_LOGI("[LORA_RX_GPS]", "Bytes read: %d, Lat: %0.5f, Long: %0.5f", bytes_read, buf.lat, buf.lon);
+    }
     other = buf;
     vTaskDelay(1);
   }
@@ -237,7 +255,7 @@ void receive_lora_gps(void *)
 /* Main RTOS Lora task that does hardware initialization. */
 void lora_task(void *pvParam)
 {
-  QueueHandle_t *screen_lora_event_queue = (QueueHandle_t *)pvParam;
+  // QueueHandle_t *screen_lora_event_queue = (QueueHandle_t *)pvParam;
   /* Setup Lora Radio */
   lora_init();
   /* Move to a configuration function in lora.c along with the end of lora_init */
@@ -247,8 +265,9 @@ void lora_task(void *pvParam)
 
   /* Start an actual task for the radio... */
   // task_rx(screen_lora_event_queue);
-  task_tx(screen_lora_event_queue);
+  // task_tx(screen_lora_event_queue);
   // task_both_gps(screen_lora_event_queue);
+  task_both(screen_lora_event_queue);
   // task_lora_rx(screen_lora_event_queue);
 }
 
@@ -276,20 +295,23 @@ void app_main()
     .cal_x = cal,
   };
   start_screen();
-  xTaskCreate(lvgl_timer_task, "lvgl timer task", 4096, NULL, 8, NULL);
+  // xTaskCreate(lvgl_timer_task, "lvgl timer task", 4096, NULL, 8, NULL);
   /* Calibrate_task returns and does not infinite loop, so it's ok to use stack memory.
   app_main runs this to completion before executing the next line of code.  */
-  xTaskCreate(calibrate_task, "calibration", 4096, &calibrate_params, 5, NULL);
+  // xTaskCreate(calibrate_task, "calibration", 4096, &calibrate_params, 5, NULL);
 
   /* Malloc screen parameters for GPS data, counter data, imu data, and pass to lora task and screen task.
   Currently, this freed when screen_main_task cleans itself up (after the infinite loop) */
-
   /* tbh idk if storing all this on the heap is really cleaner than just using static memory...  but, I feel like it's not that bad */
-  // screen_task_params_t *screen_params = malloc(sizeof(screen_task_params_t)); // *screen_params->screen_lora_event_queue = xQueueCreate(5, sizeof(struct lora_packet));
-  // /* TODO: Cleanup global_imu... Make a thread_safe ds similar to gps_t in nmea_parser.c */
-  // screen_params->global_imu = &global_imu;
-  // screen_params->nmea_hndl = nmea_hndl;
 
-  // xTaskCreate(&lora_task, "lora_task", 4096, screen_params->screen_lora_event_queue, 5, NULL);
-  // xTaskCreate(screen_main_task, "Minimap", LVGL_TASK_STACK_SIZE, screen_params, LVGL_TASK_PRIORITY, NULL);
+  screen_task_params_t *screen_params = malloc(sizeof(screen_task_params_t));
+  // screen_params->screen_lora_event_queue = xQueueCreate(10, sizeof(struct lora_packet));
+  /* TODO: Cleanup global_imu... Make a thread_safe ds similar to gps_t in nmea_parser.c */
+  screen_params->global_imu = &global_imu;
+  screen_params->nmea_hndl = nmea_hndl;
+
+  screen_lora_event_queue = xQueueCreate(20, sizeof(struct lora_packet));
+
+  xTaskCreate(&lora_task, "lora_task", 4096, screen_params->screen_lora_event_queue, 5, NULL);
+  xTaskCreate(screen_main_task, "Minimap", LVGL_TASK_STACK_SIZE, screen_params, LVGL_TASK_PRIORITY, NULL);
 }

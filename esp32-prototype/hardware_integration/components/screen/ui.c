@@ -164,18 +164,15 @@ void draw_north_indicator(float heading_angle) {
  */
 void display_screen(coordinates_t *curr_pos, coordinates_t *other_pos,
                     int num_other, float offset_angle) {
-  lv_obj_clean(lv_screen_active());
-  lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x020C0E),
-                            LV_PART_MAIN);
-
   pos_t origin = {0, 0};
   char our_label[32];
   sprintf(our_label, "%.5f °N\n%.5f °E", curr_pos->lat, curr_pos->lon);
   draw_bubble(&origin, our_label);
 
   // TODO: Appears to be 90 degrees off for some reason? Needs debugging
-  draw_north_indicator(offset_angle);
-
+  // TODO: Make this thread-safe, no lvgl function can be called without a lock
+  // draw_north_indicator(offset_angle);
+  // ESP_LOGI()
   for (int i = 0; i < num_other; i++) {
     pos_t relative_pos = get_relative_pos(curr_pos, &other_pos[i]);
     float dist = l2_dist(&relative_pos);
@@ -190,12 +187,13 @@ void display_screen(coordinates_t *curr_pos, coordinates_t *other_pos,
 /* Update information for the screen and display it. Gets called every 2ms. */
 void update_screen(lv_display_t *disp, nmea_parser_handle_t nmea_hndl,
                    imu_data_t *global_imu) {
-  // TODO: unjank
-  // if (global_gps->latitude == 0.0 || global_gps->longitude == 0.0) {
-  //     return;
-  // }
 
   coordinates_t curr_pos = read_gps(nmea_hndl);
+
+  // TODO: unjank
+  // if (curr_pos.lat == 0.0 || curr_pos.lon == 0.0) {
+  //     return;
+  // }
 
   coordinates_t cory_hall = {
       CORY_DOORS_LATITUDE,
@@ -214,22 +212,25 @@ void update_screen(lv_display_t *disp, nmea_parser_handle_t nmea_hndl,
   display_screen(&curr_pos, positions_to_plot, 2, curr_heading);
 }
 
-void render_counter(QueueHandle_t* screen_lora_event_queue) {
+void render_counter() {
 
   lora_packet_t receivedValue;
-  if (xQueueReceive(*screen_lora_event_queue, &receivedValue, portMAX_DELAY) == pdPASS) {
-    pos_t origin = {0, 0};
-    static char our_label[32];
+  if (xQueueReceive(screen_lora_event_queue, &receivedValue, portMAX_DELAY) == pdPASS) {
+    pos_t send_location = {50, 0};
+    pos_t recieved_location = {-50, 0};
+    static char send_label[32];
+    static char recieved_label[32];
     if (receivedValue.tx_rx == 0) {
       // transmitter
-      ESP_LOGI("QUEUE READ", "Value from queue %d", receivedValue.counter_val);
-      sprintf(our_label, "Sending: %d", receivedValue.counter_val);
+      ESP_LOGI("QUEUE READ TX", "Value from queue %ld", receivedValue.counter_val);
+      sprintf(send_label, "Sending: %ld", receivedValue.counter_val);
     } else {
       // receiver
-      ESP_LOGI("QUEUE READ", "Value from queue %d", receivedValue.counter_val);
-      sprintf(our_label, "Receiving: %d", receivedValue.counter_val);
+      ESP_LOGI("QUEUE READ RX", "Value from queue %ld", receivedValue.counter_val);
+      sprintf(recieved_label, "Receiving: %ld", receivedValue.counter_val);
     }
-    draw_bubble(&origin, our_label);
+    draw_bubble(&send_location, send_label);
+    draw_bubble(&recieved_location, recieved_label);
   }
 }
 
@@ -289,28 +290,23 @@ void screen_main_task(void *arg)
     nmea_parser_handle_t nmea_hndl = args->nmea_hndl;
     imu_data_t* global_imu = args->global_imu;
     QueueHandle_t* screen_lora_event_queue = args->screen_lora_event_queue;
-    start_screen();
-    ESP_LOGI(SCREEN_TAG, "Starting LVGL task");
+    // start_screen();
+    ESP_LOGI(SCREEN_TAG, "Starting screen_main_task");
     uint32_t time_till_next_ms = 0;
     uint32_t time_threshold_ms = 1000 / CONFIG_FREERTOS_HZ;
     while (1) {
         // Lock the mutex due to the LVGL APIs are not thread-safe
-        _lock_acquire(&lvgl_api_lock);
         /* Draw the background. */
-        lv_obj_clean(lv_screen_active());
-        lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x020C0E), LV_PART_MAIN);
-
+        clear_screen();
         /* Call some UI function or react on some logic ... */
         // update_screen(display, nmea_hndl, global_imu);
-        
-        render_counter(screen_lora_event_queue);
-
+        render_counter();
         // varun_ui(display);
+        // in case of triggering a task watch dog time out
 
-
+        _lock_acquire(&lvgl_api_lock);
         time_till_next_ms = lv_timer_handler();
         _lock_release(&lvgl_api_lock);
-        // in case of triggering a task watch dog time out
         time_till_next_ms = MAX(time_till_next_ms, time_threshold_ms);
         usleep(1000 * time_till_next_ms);
     }

@@ -43,7 +43,7 @@ typedef struct imu_data {
 
 typedef struct lora_packet {
   bool tx_rx;      // 0 for tx, 1 for rx
-  int counter_val; // self-explanatory
+  uint32_t counter_val; // self-explanatory
 } lora_packet_t;
 
 /* pvParameter for app_main to pass to xCreateTask for the screen */
@@ -65,7 +65,7 @@ void draw_bubble(pos_t *position, char *label);
 void screen_main_task(void(*));
 
 // Verbose naming for now just to describe it
-void render_counter(QueueHandle_t* screen_lora_event_queue);
+void render_counter();
 
 // Display text on screen for s seconds
 void display_text(char* text);
@@ -75,5 +75,7 @@ void display_line_2(char* text);
 void display_line_3(char* text);
 
 void calibrate_task(void *pvParam);
+
+extern QueueHandle_t screen_lora_event_queue;
 
 #endif

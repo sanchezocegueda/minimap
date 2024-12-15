@@ -522,7 +522,8 @@ lora_receive_packet_blocking(uint8_t *buf, int size)
    __DIO0_RX = true;
    lora_receive();
    int event;
-    if (xQueueReceive(lora_irq_queue, &event, portMAX_DELAY) && event == IRQ_FLAGS_RX_DONE) {
+    ESP_LOGI("BLOCKING", "");
+    if (xQueueReceive(lora_irq_queue, &event, pdTICKS_TO_MS(1000)) && event == IRQ_FLAGS_RX_DONE) {
       int irq = lora_read_reg(REG_IRQ_FLAGS);
       if(irq & IRQ_FLAGS_PAYLOAD_CRC_ERROR) {
          ESP_LOGI("[DEBUG LORA BLOCKING]", "CRC error");
@@ -538,6 +539,7 @@ lora_receive_packet_blocking(uint8_t *buf, int size)
       lora_write_reg(REG_IRQ_FLAGS, IRQ_FLAGS_RX_DONE); // clear bit in IRQ Status register
       return lora_read_fifo(buf, size);
     }
+    ESP_LOGI("timed out", "");
    return 0;
 }
 
