@@ -204,6 +204,7 @@ void task_both(nmea_parser_handle_t nmea_hndl)
       };
       lora_send_packet((uint8_t *)&packet_tx.curr_gps_pos, sizeof(coordinates_t));
       xQueueSendToFront(screen_lora_event_queue, &packet_tx, portMAX_DELAY);
+      ESP_LOGI("SENT LAT LON", "LAT: %f, LON: %f", gps_coord.lat, gps_coord.lon);
     } else {
 
       lora_receive(false);
@@ -346,7 +347,7 @@ void app_main()
   screen_params->nmea_hndl = nmea_hndl;
   lora_task_params->nmea_hndl = nmea_hndl;
 
-  screen_lora_event_queue = xQueueCreate(20, sizeof(struct lora_packet));
+  screen_lora_event_queue = xQueueCreate(20, sizeof(struct lora_gps_packet));
 
   xTaskCreate(&lora_task, "lora_task", 4096, lora_task_params, 5, NULL);
   xTaskCreate(screen_main_task, "Minimap", LVGL_TASK_STACK_SIZE, screen_params, LVGL_TASK_PRIORITY, NULL);

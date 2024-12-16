@@ -187,10 +187,10 @@ void display_screen(coordinates_t *curr_pos, coordinates_t *other_pos,
 }
 
 /* Update information for the screen and display it. Gets called every 2ms. */
-void update_screen(lv_display_t *disp,
+void update_screen(lv_display_t *disp, nmea_parser_handle_t nmea_hndl,
                    imu_data_t *global_imu) {
 
-  coordinates_t curr_pos;
+  coordinates_t curr_pos = read_gps(nmea_hndl);
   coordinates_t other_pos;
   lora_gps_packet_t receivedValue;
 
@@ -200,6 +200,7 @@ void update_screen(lv_display_t *disp,
         // ESP_LOGI("QUEUE READ TX", "Value from queue %ld", receivedValue.counter_val);
         // sprintf(send_label, "sent: %f, %f", receivedValue.curr_gps_pos.lat, receivedValue.curr_gps_pos.lon);
         curr_pos = receivedValue.curr_gps_pos;
+        ESP_LOGI("RECIEVED LAT LON", "LAT: %f, LON: %f", curr_pos.lat, curr_pos.lon);
       } else {
         // receiver
         // ESP_LOGI("QUEUE READ RX", "Value from queue %ld", receivedValue.counter_val);
@@ -219,7 +220,7 @@ void update_screen(lv_display_t *disp,
         cory_hall,
         other_pos,
     };
-    ESP_LOGI("HEADING", "THeading: %f", curr_heading);
+    ESP_LOGI("HEADING", "Heading: %f", curr_heading);
     display_screen(&curr_pos, positions_to_plot, 2, curr_heading);
 }
 
@@ -308,7 +309,7 @@ void screen_main_task(void *arg)
         /* Draw the background. */
         clear_screen();
         /* Call some UI function or react on some logic ... */
-        update_screen(display, global_imu);
+        update_screen(display, nmea_hndl, global_imu);
         // render_counter(nmea_hndl);
         // varun_ui(display);
         // in case of triggering a task watch dog time out
