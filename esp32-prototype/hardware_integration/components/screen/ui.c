@@ -1,5 +1,3 @@
-#include "esp_log.h"
-#include "nmea_parser.h"
 #include "ui_utils.h"
 /* NOTE: y values are flipped on the screen. */
 
@@ -16,8 +14,6 @@
 #define CORY_DOORS_LATITUDE 37.87535
 #define CORY_DOORS_ALTITUDE 150.10001
 
-// TODO: MOVE
-extern coordinates_t other;
 const char* SCREEN_TAG = "[SCREEN]";
 
 /* Get distance from origin */

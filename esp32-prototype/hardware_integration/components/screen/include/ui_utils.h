@@ -26,9 +26,13 @@
 #define MIN_DISPLAY_RADIUS 20
 #define SCREEN_SCALE 2
 
-// LVGL library is not thread-safe, this example will call LVGL APIs from different tasks, so use a mutex to protect it
+/* Global variables */
 extern _lock_t lvgl_api_lock;
-extern lv_disp_t * display;
+extern lv_disp_t* display;
+
+extern QueueHandle_t screen_lora_event_queue;
+extern QueueHandle_t button_event_queue;
+extern coordinates_t other;
 
 /* Euclidean Coordinate */
 typedef struct pos {
@@ -68,9 +72,9 @@ typedef struct calibrate_screen_params {
 
 void draw_bubble(pos_t *position, char *label);
 
-void screen_main_task(void(*));
+void screen_main_task(void* arg);
 
-// Verbose naming for now just to describe it
+/* Function to render task_both sending a counter and receiving a counter. */
 void render_counter();
 
 // Display text on screen for s seconds
@@ -81,8 +85,5 @@ void display_line_2(char* text);
 void display_line_3(char* text);
 
 void calibrate_task(void *pvParam);
-
-extern QueueHandle_t screen_lora_event_queue;
-extern QueueHandle_t button_event_queue;
 
 #endif

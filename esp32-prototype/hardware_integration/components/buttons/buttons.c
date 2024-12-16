@@ -1,4 +1,5 @@
 #include "buttons.h"
+/* Basic interface for a button, you could write more callback functions and listeners to block on the button_event_queue */
 
 /* You could also pass data into USR_DATA with iot_button_register_cb */
 void left_cb(void* arg, void *usr_data)
@@ -17,11 +18,12 @@ void right_cb(void* arg, void *usr_data)
 
 /* Task to handle button interrupts. This should be modified each time the button callbacks change.
 (or deleted and a new listener spawned...) */
+/* UNUSED */
 void button_listener(void* arg)
 {
     uint32_t event;
     for (;;) {
-        if (xQueueReceive(button_event_queue, &event, portMAX_DELAY)) {
+        if (xQueueReceive(button_event_queue, &event, portMAX_DELAY) == pdPASS) {
             if (event == LEFT_PRESS) {
                 ESP_LOGI("[BUTTON]", "Left button pressed!");
             } else if (event == RIGHT_PRESS) {
@@ -53,6 +55,8 @@ button_handle_t init_btn(gpio_num_t gpio_pin) {
 
 /* Setup GPIO for the buttons and creates a queue and a listener task for button events.
 In order to use the buttons, register callback functions with iot_button_register_cb. */
+
+// UPDATE, we no longer are using button_listener, just use button_event_queue to block on button presses
 void init_buttons(button_handle_t *left, button_handle_t *right)
 {
     *left = init_btn(LEFT_BUTTON_PIN);

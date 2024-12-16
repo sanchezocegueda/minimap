@@ -548,30 +548,32 @@ lora_receive_packet_blocking(uint8_t *buf, int size)
 {
    lora_write_reg(REG_DIO_MAPPING_1, DIO0_RX_DONE); /* Config DIO0 to interrupt when RxDone */
    __DIO0_RX = true;
-   lora_receive(false);
+   /* Continuous mode, interrupt should happen on RxTimeout as well, we can config in registers TODO, see datasheet */
+   lora_receive(true);
    int event;
-    ESP_LOGI("BLOCKING", "");
-    if (xQueueReceive(lora_irq_queue, &event, 5000) && event == IRQ_FLAGS_RX_DONE) {
+   ESP_LOGI("[DEBUG LORA BLOCKING]", "About to block");
+   if (xQueueReceive(lora_irq_queue, &event, portMAX_DELAY) && event == IRQ_FLAGS_RX_DONE)
+   {
       /* Clear interrupts */
       int irq = lora_read_reg(REG_IRQ_FLAGS);
       lora_write_reg(REG_IRQ_FLAGS, irq);
+
       /* Check errors */
-      if(irq & IRQ_FLAGS_PAYLOAD_CRC_ERROR) {
+      if (irq & IRQ_FLAGS_PAYLOAD_CRC_ERROR)
+      {
          ESP_LOGI("[DEBUG LORA BLOCKING]", "CRC error");
-         // lora_write_reg(REG_IRQ_FLAGS, IRQ_FLAGS_PAYLOAD_CRC_ERROR | IRQ_FLAGS_RX_DONE); // clear bit in IRQ Status register
          return 0;
       }
-      if (irq & IRQ_FLAGS_RX_TIMEOUT) {
+      if (irq & IRQ_FLAGS_RX_TIMEOUT)
+      {
          ESP_LOGI("[DEBUG LORA BLOCKING]", "timeout");
-         // lora_write_reg(REG_IRQ_FLAGS, IRQ_FLAGS_RX_TIMEOUT | IRQ_FLAGS_RX_DONE); // clear bit in IRQ Status register
          return 0;
       }
       ESP_LOGI("[DEBUG LORA BLOCKING]", "No errors");
-      // lora_write_reg(REG_IRQ_FLAGS, IRQ_FLAGS_RX_DONE); // clear bit in IRQ Status register
+
       /* Read fifo data */
       return lora_read_fifo(buf, size);
-    }
-    ESP_LOGI("timed out", "");
+   }
    return 0;
 }
 

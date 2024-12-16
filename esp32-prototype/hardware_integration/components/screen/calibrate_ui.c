@@ -354,39 +354,36 @@ void calibrate_mag_with_output(calibration_t* cal_mpu_x)
 }
 
 
-/* Screen task that prompts the user for calibration, blocks until a button is pressed
-which chooses whether to calibration, then renders the steps for calibration and
-writes the values into the provided cal pointer in pvParam. */
-// Note: Not actually a task
+/* Prompts the user for calibration, and blocks until a button is pressed.
+If the right button is pressed, we calibrate, render the steps for calibration, and
+write the values into the provided cal pointer in pvParam. NOTE: Not actually a task.
+  - Needs pointer to cal struct
+  - Needs button event queue (global for now)
+*/
 void calibrate_task(void *pvParam){
-  /* 
-  - Needs pointer to cal struct 
-  - Needs button event queue
-  */
   calibrate_screen_params_t* args = (calibrate_screen_params_t*) pvParam;
   calibration_t* imu_cal = args->cal_x;
+
   /* Block until a button press. */
   minimap_button_event_t press;
-  ESP_LOGI("[CALIBRATION]", "Waiting 5 seconds for user to press a button to calibrate");
-  if (xQueueReceive(button_event_queue, &press, pdMS_TO_TICKS(5000))) {
+  ESP_LOGI("[CALIBRATION]", "Waiting for user to press a button to calibrate");
+  if (xQueueReceive(button_event_queue, &press, portMAX_DELAY) && press == LEFT_PRESS) {
     /* On left button press, we don't calibrate */
-    if (press == LEFT_PRESS) {
       return;
-    }
   }
-
-  // Right button press (we do want to calibrate)
-
-  /* lvgl_timer_task is to counter lvgl ticks while calibration task runs, could just make calibration_task spawn it and kill it. */
-  
+  /* Right button press (we do want to calibrate) */
+  /* lvgl_timer_task is to count lvgl ticks while the calibration task runs */
   TaskHandle_t timer_handle;
   xTaskCreate(lvgl_timer_task, "lvgl timer task", 4096, NULL, 8, &timer_handle);
 
+  /* Init IMU */
   i2c_mpu9250_init(&cal);
 
+  /* Perform screen calibration */
   calibrate_gyro_with_output(imu_cal);
   calibrate_accel_with_output(imu_cal);
   calibrate_mag_with_output(imu_cal);
   clear_screen();
+  /* Delete lvgl timer task, screen_main_task will need to handle lv timers with lv_timer_handler() */
   vTaskDelete(timer_handle);
 }

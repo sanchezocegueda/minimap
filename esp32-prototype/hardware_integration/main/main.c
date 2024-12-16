@@ -35,6 +35,9 @@ void send_lora_gps();
 
 #define I2C_MASTER_NUM I2C_NUM_0 /* I2C port number for master dev */
 
+const bool DEBUG_IMU = false;
+
+
 /* Global variable init */
 imu_data_t global_imu;
 nmea_parser_handle_t nmea_hndl;
@@ -42,7 +45,7 @@ QueueHandle_t button_event_queue;
 QueueHandle_t screen_lora_event_queue;
 coordinates_t other;
 
-/* IMU Calibration, set accordingly in run_imu */
+/* IMU Calibration, set accordingly to hardware in the cal variable below. */
 calibration_t cal_mpu92_65 = {
     .mag_offset = {.x = 44.384766, .y = -12.468750, .z = 24.607422},
     .mag_scale = {.x = 1.023329, .y = 1.019963, .z = 0.959353},
@@ -62,16 +65,11 @@ calibration_t cal_mpu9250_6500 = {
 /* Global calibration variable */
 calibration_t *cal = &cal_mpu92_65;
 
-typedef struct lora_task_params {
-    nmea_parser_handle_t nmea_hndl;
-} lora_task_params_t;
 
-void run_imu(void)
+/* Function to run the imu */
+static void run_imu(void)
 {
-  i2c_mpu9250_init(cal);
-  ahrs_init(SAMPLE_FREQ_Hz, 0.8);
-
-  uint64_t i = 0;
+  uint32_t i;
   while (true)
   {
     vector_t va, vg, vm;
@@ -82,7 +80,7 @@ void run_imu(void)
     /* Transform these to the orientation of our device. */
     transform_accel_gyro(&va);
     transform_accel_gyro(&vg);
-    // transform_mag(&vm);
+    // transform_mag(&vm); Not needed because we keep the axis the same
 
     /* Apply the AHRS algorithm */
     ahrs_update(DEG2RAD(vg.x), DEG2RAD(vg.y), DEG2RAD(vg.z),
@@ -96,37 +94,31 @@ void run_imu(void)
     global_imu.pitch = pitch;
     global_imu.roll = roll;
 
-    if (i++ % 10 == 0)
-    {
-      // float temp;
-      // ESP_ERROR_CHECK(get_temperature_celsius(&temp));
-
+    /* Debug every CONFIG_SAMPLE_RATE_Hz / 10 */
+    if (DEBUG_IMU && i++ % 10 == 0)
       ESP_LOGI("[IMU]", "heading: %2.3f°, pitch: %2.3f°, roll: %2.3f°", heading, pitch, roll);
+      // TODO: Shouldn't need this below
+      // vTaskDelay(1); /* Make the WDT happy */
 
-      // Make the WDT happy
-      vTaskDelay(1);
-    }
-    // no idea why this is here
-    // imu_pause();
+    imu_pause(); /* Delay imu task to reach target sample frequency, set in menuconfig under CONFIG_SAMPLE_RATE_Hz */
   }
 }
 
+
 static void imu_task(void *arg)
 {
-#ifdef CONFIG_CALIBRATION_MODE
-  calibrate_gyro();
-  calibrate_accel();
-  calibrate_mag();
-#else
-  run_imu();
-#endif
+  /* Init IMU and ahrs algorithm */
+  i2c_mpu9250_init(cal);
+  ahrs_init(SAMPLE_FREQ_Hz, 0.8);
 
-  // Exit
+  run_imu(); /* Infinite loop to poll the IMU in a period of CONFIG_SAMPLE_RATE_Hz */
+
+  /* Cleanup task */
   vTaskDelay(100 / portTICK_PERIOD_MS);
   i2c_driver_delete(I2C_MASTER_NUM);
-
   vTaskDelete(NULL);
 }
+
 
 /* Basic transmit task to send a counter every 2.5 seconds */
 void task_tx(void *p)
@@ -145,6 +137,7 @@ void task_tx(void *p)
     vTaskDelay(pdMS_TO_TICKS(500)); // Send a tx every 500 ms
   }
 }
+
 
 /* Basic receive task to turn radio into receive mode and block until data is received */
 void task_rx(void *p)
@@ -175,7 +168,8 @@ void task_rx(void *p)
   }
 }
 
-/* Task to send a counter and listen for a counter periodically*/
+
+/* Task-like function to send a counter and listen for a counter periodically. */
 void task_both(nmea_parser_handle_t nmea_hndl)
 {
   // ESP_LOGI("[task_both]", "started");
@@ -221,7 +215,7 @@ void task_both(nmea_parser_handle_t nmea_hndl)
   }
 }
 
-/* Task to send a counter and listen for a counter periodically*/
+/* Task to send a counter and listen for a counter periodically */
 void task_both_gps(void *p)
 {
   ESP_LOGI("[task both gps]", "started");
@@ -262,7 +256,6 @@ void send_lora_gps(nmea_parser_handle_t nmea_hndl)
   lora_send_packet_blocking((uint8_t *)&buf, sizeof(coordinates_t));
   ESP_LOGI("[LORA_TX_GPS]", "Lat: %0.5f, Long: %0.5f", buf.lat, buf.lon);
 }
-
 /* Task for receiving GPS over lora */
 void receive_lora_gps(void *)
 {
@@ -288,13 +281,20 @@ void receive_lora_gps(void *)
   }
 }
 
+
+// TODO: we could also include the 'ID' of the minimap device, i.e. which interval it's in
+typedef struct lora_task_params {
+    nmea_parser_handle_t nmea_hndl;
+} lora_task_params_t;
+
 /* Main RTOS Lora task that does hardware initialization. */
 void lora_task(void *pvParam)
 {
-  /* Setup Lora Radio */
-  assert(1 == lora_init());
   lora_task_params_t * params = (lora_task_params_t *) pvParam;
-  lora_config();
+  /* Setup hardware for Lora Radio, initialize SPI driver */
+  assert(1 == lora_init());
+  lora_config(); /* Configure hardware registers for application */
+
   /* Start an actual task for the radio... */
   // task_rx(NULL);
   // task_tx(NULL);
@@ -303,6 +303,7 @@ void lora_task(void *pvParam)
   // task_lora_rx(NULL);
 }
 
+/* Start of Minimap */
 void app_main()
 {
   /* Setup GPS */
@@ -331,10 +332,7 @@ void app_main()
 
   /* Calibrate_task returns and does not infinite loop, so it's ok to use stack memory.
   app_main runs this to completion before executing the next line of code.  */
-  // xTaskCreate(calibrate_task, "calibration", 4096, &calibrate_params, 5, NULL);
-
-  // calibrate_task(&calibrate_params);
-
+  calibrate_task(&calibrate_params);
 
   /* Malloc screen parameters for GPS data, counter data, imu data, and pass to lora task and screen task.
   Currently, this freed when screen_main_task cleans itself up (after the infinite loop) */
