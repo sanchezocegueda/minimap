@@ -187,13 +187,19 @@ typedef struct coordinates {
     float lon;
 } coordinates_t;
 
+typedef struct gps_output {
+    bool valid;
+    float lat;
+    float lon;
+} gps_output_t;
+
 /**
  * @brief Returns lat/lon of the GPS in a thread-safe manner.
  * 
  * @param nmea_hndl returned from nmea_parser_init
  * @return coordinates_t with lat/lon of `gps`
  */
-coordinates_t read_gps(nmea_parser_handle_t nmea_hndl);
+gps_output_t read_gps(nmea_parser_handle_t nmea_hndl);
 
 gps_time_t read_gps_time(nmea_parser_handle_t nmea_hndl);
 

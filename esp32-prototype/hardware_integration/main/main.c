@@ -43,7 +43,9 @@ imu_data_t global_imu;
 nmea_parser_handle_t nmea_hndl;
 QueueHandle_t button_event_queue;
 QueueHandle_t screen_lora_event_queue;
-coordinates_t other;
+
+coordinates_t curr_pos;
+coordinates_t other_pos;
 
 /* IMU Calibration, set accordingly to hardware in the cal variable below. */
 calibration_t cal_mpu92_65 = {
@@ -126,7 +128,7 @@ void task_tx(void *p)
 {
   ESP_LOGI("[TX]", "started");
   lora_packet_t packet_tx = {
-    .tx_rx = 0, // indicate that this is transmitter
+    .valid = 0, // indicate that this is transmitter
     .counter_val = 0,
   };
   for (;;)
@@ -147,7 +149,7 @@ void task_rx(void *p)
   uint8_t buf[sizeof(uint32_t)];
   lora_packet_t packet_rx = {
     .counter_val = 0,
-    .tx_rx = 1, // indicate that this is receiver
+    .valid = 1, // indicate that this is receiver
   };
 
   for (;;)
@@ -173,18 +175,7 @@ void task_rx(void *p)
 /* Task-like function to send a counter and listen for a counter periodically. */
 void task_both(nmea_parser_handle_t nmea_hndl)
 {
-  // ESP_LOGI("[task_both]", "started");
-  // lora_packet_t packet_tx = {
-  //   .counter_val = 0,
-  //   .tx_rx = 0,
-  // };
-
-  // lora_packet_t packet_rx = {
-  //   .counter_val = 0,
-  //   .tx_rx = 1,
-  // };
-
-  uint8_t buf[sizeof(uint32_t)];
+  uint8_t buf[sizeof(coordinates_t)];
 
    /* Set the size of packets to match GPS data. (By default it is configured to uint32_t in lora_config()) */
    lora_implicit_header_mode(sizeof(coordinates_t));
@@ -195,24 +186,29 @@ void task_both(nmea_parser_handle_t nmea_hndl)
     gps_time_t time = read_gps_time(nmea_hndl);
     
     if (time.second % 10 > 5) { // TODO: CHANGE THIS TO > 5 for other device (need to find cleaner way so we don't have to change)
-      coordinates_t gps_coord = read_gps(nmea_hndl); 
-      lora_gps_packet_t packet_tx = {
-        .tx_rx=0,
-        .curr_gps_pos = gps_coord
-      };
-      lora_send_packet((uint8_t *)&packet_tx.curr_gps_pos, sizeof(coordinates_t));
-      xQueueSendToFront(screen_lora_event_queue, &packet_tx, portMAX_DELAY);
-      ESP_LOGI("SENT LAT LON", "LAT: %f, LON: %f", gps_coord.lat, gps_coord.lon);
-    } else {
+      gps_output_t gps_out = read_gps(nmea_hndl);
 
+      // Make sure we have a valid GPS reading
+      // Otherwise just try again
+      if (!gps_out.valid) {
+        continue;
+      }
+
+      curr_pos.lat = gps_out.lat;
+      curr_pos.lon = gps_out.lon;
+      
+      lora_send_packet((uint8_t *) &curr_pos, sizeof(coordinates_t));
+      ESP_LOGI("SENT LAT LON", "LAT: %f, LON: %f", curr_pos.lat, curr_pos.lon);
+    } else {
       lora_receive(false);
-      lora_gps_packet_t packet_rx;
+      gps_output_t gps_rx;
       while (lora_received()) {
         int bytes_read = lora_receive_packet((uint8_t *)&buf, sizeof(coordinates_t));
         if (bytes_read > 0) {
-          packet_rx.curr_gps_pos = ((coordinates_t*)buf)[0];
-          packet_rx.tx_rx = 1;
-          xQueueSendToFront(screen_lora_event_queue, &packet_rx, portMAX_DELAY);
+          other_pos = ((coordinates_t*)buf)[0];
+          gps_rx.lat = other_pos.lat;
+          gps_rx.lon = other_pos.lon;
+          xQueueSendToFront(screen_lora_event_queue, &other_pos, portMAX_DELAY);
         }
       }
     }  
@@ -241,7 +237,7 @@ void task_both_gps(void *p)
       int bytes_read = lora_receive_packet((uint8_t *)&buf, sizeof(coordinates_t));
       if (bytes_read > 0) {
         ESP_LOGI("[LORA_RX_GPS]", "Bytes read: %d, Lat: %0.5f, Long: %0.5f", bytes_read, buf.lat, buf.lon);
-        other = buf;
+        other_pos = buf;
       }
     }
     vTaskDelay(1);
@@ -254,11 +250,19 @@ void task_both_gps(void *p)
  * */
 void send_lora_gps(nmea_parser_handle_t nmea_hndl)
 {
-  coordinates_t buf = read_gps(nmea_hndl);
+  gps_output_t gps_out = read_gps(nmea_hndl);
+  
+  if (!gps_out.valid) {
+    return;
+  }
+
+  // Update our current position
+  curr_pos.lat = gps_out.lat;
+  curr_pos.lon = gps_out.lon;
   // TODO: encryption
 
-  lora_send_packet_blocking((uint8_t *)&buf, sizeof(coordinates_t));
-  ESP_LOGI("[LORA_TX_GPS]", "Lat: %0.5f, Long: %0.5f", buf.lat, buf.lon);
+  lora_send_packet_blocking((uint8_t *)&curr_pos, sizeof(coordinates_t));
+  ESP_LOGI("[LORA_TX_GPS]", "Lat: %0.5f, Long: %0.5f", curr_pos.lat, curr_pos.lon);
 }
 /* Task for receiving GPS over lora */
 void receive_lora_gps(void *)
@@ -349,8 +353,9 @@ void app_main()
   screen_params->nmea_hndl = nmea_hndl;
   lora_task_params->nmea_hndl = nmea_hndl;
 
-  screen_lora_event_queue = xQueueCreate(20, sizeof(struct lora_gps_packet));
+  screen_lora_event_queue = xQueueCreate(20, sizeof(coordinates_t));
 
   xTaskCreate(&lora_task, "lora_task", 4096, lora_task_params, 5, NULL);
+  
   xTaskCreate(screen_main_task, "Minimap", LVGL_TASK_STACK_SIZE, screen_params, LVGL_TASK_PRIORITY, NULL);
 }

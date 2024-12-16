@@ -785,15 +785,22 @@ void gps_debug(nmea_parser_handle_t nmea_hndl) {
  * @param nmea_hndl returned from nmea_parser_init
  * @return coordinates_t with lat/lon of `gps`
  */
-coordinates_t read_gps(nmea_parser_handle_t nmea_hndl) {
+gps_output_t read_gps(nmea_parser_handle_t nmea_hndl) {
     gps_t* gps = &((esp_gps_t*)nmea_hndl)->parent;
-    coordinates_t cord;
+    gps_output_t res;
     xSemaphoreTake(gps->lock, portMAX_DELAY);
-    cord.lat = gps->latitude;
-    cord.lon = gps->longitude;
+    if (gps->fix_mode == (gps_fix_mode_t) GPS_FIX_INVALID) {
+        res.valid = false;
+    } else{
+        res.valid = true;
+        res.lat = gps->latitude;
+        res.lon = gps->longitude;
+    }
     xSemaphoreGive(gps->lock);
-    return cord;
+    return res;
 }
+
+
 
 gps_time_t read_gps_time(nmea_parser_handle_t nmea_hndl) {
     gps_t* gps = &((esp_gps_t*)nmea_hndl)->parent;

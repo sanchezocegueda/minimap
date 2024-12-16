@@ -24,6 +24,11 @@ float l2_dist(pos_t *pos) {
 /* Converts angle in degrees to radians */
 float deg_to_rad(float deg) { return deg * (M_PI / 180.0f); }
 
+
+/* Global variables for gps coordinates */
+gps_output_t curr_out;
+gps_output_t other_outc;
+
 /**
  * @brief Gets the euclidean distance between two GPS coordinate pairs
  * @param coords1 GPS coordinates
@@ -155,7 +160,7 @@ void draw_north_indicator(float heading_angle) {
 
 /**
  * @brief Displays every GPS point-of-interest on the screen.
- * @param curr_pos Current user GPS position
+ * @param  f Current user GPS position
  * @param other_pos Array of other points of interest
  * @param num_other Length of other_pos array
  * @param offset_angle Current heading relative to north
@@ -183,14 +188,21 @@ void display_screen(coordinates_t *curr_pos, coordinates_t *other_pos,
 }
 
 void update_screen(lv_display_t *disp, nmea_parser_handle_t nmea_hndl, imu_data_t *global_imu) {
-    coordinates_t curr_pos = read_gps(nmea_hndl);
-    coordinates_t other_pos;
+    gps_output_t gps_out = read_gps(nmea_hndl);
+
+    // Update our position if the GPS reading is valid
+    // Otherwise, we just keep the last known position (from curr_pos variable).
+    if (gps_out.valid) {
+      curr_pos.lat = gps_out.lat;
+      curr_pos.lon = gps_out.lon;
+    }
+    
     lora_gps_packet_t receivedValue;
     
     // Use a short timeout instead of MAX_DELAY
     const TickType_t xTicksToWait = pdMS_TO_TICKS(0);  // 0ms timeout
     if (xQueueReceive(screen_lora_event_queue, &receivedValue, xTicksToWait) == pdPASS) {
-        if (receivedValue.tx_rx == 1 && receivedValue.curr_gps_pos.lat != 0 && 
+        if (receivedValue.valid == 1 && receivedValue.curr_gps_pos.lat != 0 && 
             receivedValue.curr_gps_pos.lon != 0) {
             other_pos = receivedValue.curr_gps_pos;
             ESP_LOGI("RECEIVED LAT LON", "LAT: %f, LON: %f", curr_pos.lat, curr_pos.lon);
@@ -221,7 +233,7 @@ void render_counter() {
     pos_t recieved_location = {-50, 0};
     static char send_label[32];
     static char recieved_label[32];
-    if (receivedValue.tx_rx == 0) {
+    if (receivedValue.valid == 0) {
       // transmitter
       // ESP_LOGI("QUEUE READ TX", "Value from queue %ld", receivedValue.counter_val);
       sprintf(send_label, "sent: %f, %f", receivedValue.curr_gps_pos.lat, receivedValue.curr_gps_pos.lon);

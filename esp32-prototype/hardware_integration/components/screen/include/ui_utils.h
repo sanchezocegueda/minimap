@@ -32,7 +32,9 @@ extern lv_disp_t* display;
 
 extern QueueHandle_t screen_lora_event_queue;
 extern QueueHandle_t button_event_queue;
-extern coordinates_t other;
+
+extern coordinates_t other_pos;
+extern coordinates_t curr_pos;
 
 /* Euclidean Coordinate */
 typedef struct pos {
@@ -47,12 +49,12 @@ typedef struct imu_data {
 } imu_data_t;
 
 typedef struct lora_packet {
-  bool tx_rx;      // 0 for tx, 1 for rx
+  bool valid;      // 0 for tx, 1 for rx
   uint32_t counter_val; // gps position
 } lora_packet_t;
 
 typedef struct lora_gps_packet {
-  bool tx_rx;      // 0 for tx, 1 for rx
+  bool valid;      // 0 for tx, 1 for rx
   coordinates_t curr_gps_pos; // gps position
 } lora_gps_packet_t;
 
@@ -68,6 +70,8 @@ typedef struct calibrate_screen_params {
   calibration_t* cal_x; /* Which MPU calibration to overwrite */
   QueueHandle_t* button_event_queue; /* To block on button presses */
 } calibrate_screen_params_t;
+
+
 
 
 void draw_bubble(pos_t *position, char *label);
