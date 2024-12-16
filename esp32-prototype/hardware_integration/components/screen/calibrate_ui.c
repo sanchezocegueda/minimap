@@ -26,7 +26,8 @@ static calibration_t cal = {
     .accel_offset = {.x = 0.0, .y = 0.0, .z = 0.0},
     .accel_scale_lo = {.x = -1.0, .y = -1.0, .z = -1.0},
     .accel_scale_hi = {.x = 1.0, .y = 1.0, .z = 1.0},
-    .gyro_bias_offset = {.x = 0.0, .y = 0.0, .z = 0.0}};
+    .gyro_bias_offset = {.x = 0.0, .y = 0.0, .z = 0.0}
+};
 
 
 void countdown(int x)
@@ -363,6 +364,7 @@ write the values into the provided cal pointer in pvParam. NOTE: Not actually a 
 void calibrate_task(void *pvParam){
   calibrate_screen_params_t* args = (calibrate_screen_params_t*) pvParam;
   calibration_t* imu_cal = args->cal_x;
+  *imu_cal = cal;
 
   /* Block until a button press. */
   minimap_button_event_t press;
@@ -377,7 +379,7 @@ void calibrate_task(void *pvParam){
   xTaskCreate(lvgl_timer_task, "lvgl timer task", 4096, NULL, 8, &timer_handle);
 
   /* Init IMU */
-  init_imu(&cal);
+  init_imu(imu_cal);
 
   /* Perform screen calibration */
   calibrate_gyro_with_output(imu_cal);
