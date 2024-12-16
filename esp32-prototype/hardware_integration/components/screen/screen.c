@@ -64,6 +64,7 @@ void lvgl_timer_task(void* pvParam) {
     uint32_t time_threshold_ms = 1000 / CONFIG_FREERTOS_HZ;
     while (1) {
         _lock_acquire(&lvgl_api_lock);
+
         time_till_next_ms = lv_timer_handler();
         _lock_release(&lvgl_api_lock);
         // in case of triggering a task watch dog time out
@@ -90,7 +91,7 @@ void start_screen(void) {
         .dc_gpio_num = PIN_NUM_LCD_DC,
         .cs_gpio_num = PIN_NUM_LCD_CS,
         // Not sure about these... See  https://docs.espressif.com/projects/esp-idf/en/v5.0.1/esp32/api-reference/peripherals/lcd.html#spi-interfaced-lcd
-        .pclk_hz = LCD_PIXEL_CLOCK_HZ,
+        .pclk_hz = (40 * 1000 * 1000), // LCD_PIXEL_CLOCK_HZ,
         .lcd_cmd_bits = LCD_CMD_BITS,
         .lcd_param_bits = LCD_PARAM_BITS,
         //////////////////////////////////////

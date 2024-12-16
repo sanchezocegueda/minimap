@@ -182,40 +182,33 @@ void display_screen(coordinates_t *curr_pos, coordinates_t *other_pos,
   }
 }
 
-/* Update information for the screen and display it. Gets called every 2ms. */
-void update_screen(lv_display_t *disp, nmea_parser_handle_t nmea_hndl,
-                   imu_data_t *global_imu) {
-
-  coordinates_t curr_pos = read_gps(nmea_hndl);
-  coordinates_t other_pos;
-  lora_gps_packet_t receivedValue;
-
-  if (xQueueReceive(screen_lora_event_queue, &receivedValue, portMAX_DELAY) == pdPASS) {
-      if (receivedValue.tx_rx == 0 && receivedValue.curr_gps_pos.lat != 0 && receivedValue.curr_gps_pos.lon != 0) {
-        // transmitter
-        // ESP_LOGI("QUEUE READ TX", "Value from queue %ld", receivedValue.counter_val);
-        // sprintf(send_label, "sent: %f, %f", receivedValue.curr_gps_pos.lat, receivedValue.curr_gps_pos.lon);
-        curr_pos = receivedValue.curr_gps_pos;
-        ESP_LOGI("RECIEVED LAT LON", "LAT: %f, LON: %f", curr_pos.lat, curr_pos.lon);
-      } else {
-        // receiver
-        // ESP_LOGI("QUEUE READ RX", "Value from queue %ld", receivedValue.counter_val);
-        other_pos = receivedValue.curr_gps_pos;
-      }
+void update_screen(lv_display_t *disp, nmea_parser_handle_t nmea_hndl, imu_data_t *global_imu) {
+    coordinates_t curr_pos = read_gps(nmea_hndl);
+    coordinates_t other_pos;
+    lora_gps_packet_t receivedValue;
+    
+    // Use a short timeout instead of MAX_DELAY
+    const TickType_t xTicksToWait = pdMS_TO_TICKS(0);  // 0ms timeout
+    if (xQueueReceive(screen_lora_event_queue, &receivedValue, xTicksToWait) == pdPASS) {
+        if (receivedValue.tx_rx == 1 && receivedValue.curr_gps_pos.lat != 0 && 
+            receivedValue.curr_gps_pos.lon != 0) {
+            other_pos = receivedValue.curr_gps_pos;
+            ESP_LOGI("RECEIVED LAT LON", "LAT: %f, LON: %f", curr_pos.lat, curr_pos.lon);
+        }
     }
+
     coordinates_t cory_hall = {
         CORY_DOORS_LATITUDE,
         CORY_DOORS_LONGITUDE,
     };
-
+    
     float curr_heading = global_imu->heading;
-
     coordinates_t campanile_pos = {CAMPANILE_LATITUDE, CAMPANILE_LONGITUDE};
-
     coordinates_t positions_to_plot[2] = {
         cory_hall,
         other_pos,
     };
+    
     ESP_LOGI("[SCREEN]", "Heading: %f", curr_heading);
     display_screen(&curr_pos, positions_to_plot, 2, curr_heading);
 }
