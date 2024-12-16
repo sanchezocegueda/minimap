@@ -713,6 +713,7 @@ nmea_parser_handle_t nmea_parser_init(const nmea_parser_config_t *config)
     char enable_all_statements[] = "$PGKC242,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0*37\r\n";
     /* Enable SBAS */
     char enable_sbas[] = "$PGKC239,1*3A\r\n";
+
     uart_write_bytes(esp_gps->uart_port, gps_glonass, strlen(gps_glonass));
 
     uart_write_bytes(esp_gps->uart_port, enable_all_statements, strlen(enable_all_statements));
@@ -797,9 +798,9 @@ coordinates_t read_gps(nmea_parser_handle_t nmea_hndl) {
 gps_time_t read_gps_time(nmea_parser_handle_t nmea_hndl) {
     gps_t* gps = &((esp_gps_t*)nmea_hndl)->parent;
     gps_time_t time;
-    xSemaphoreTake(gps->lock, portMAX_DELAY);
+    // xSemaphoreTake(gps->lock, portMAX_DELAY);
     time = gps->tim;
-    xSemaphoreGive(gps->lock);
+    // xSemaphoreGive(gps->lock);
 
     return time;
 }

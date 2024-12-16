@@ -191,7 +191,7 @@ void update_screen(lv_display_t *disp, nmea_parser_handle_t nmea_hndl,
   lora_gps_packet_t receivedValue;
 
   if (xQueueReceive(screen_lora_event_queue, &receivedValue, portMAX_DELAY) == pdPASS) {
-      if (receivedValue.tx_rx == 0) {
+      if (receivedValue.tx_rx == 0 && receivedValue.curr_gps_pos.lat != 0 && receivedValue.curr_gps_pos.lon != 0) {
         // transmitter
         // ESP_LOGI("QUEUE READ TX", "Value from queue %ld", receivedValue.counter_val);
         // sprintf(send_label, "sent: %f, %f", receivedValue.curr_gps_pos.lat, receivedValue.curr_gps_pos.lon);
@@ -216,7 +216,7 @@ void update_screen(lv_display_t *disp, nmea_parser_handle_t nmea_hndl,
         cory_hall,
         other_pos,
     };
-    ESP_LOGI("HEADING", "Heading: %f", curr_heading);
+    ESP_LOGI("[SCREEN]", "Heading: %f", curr_heading);
     display_screen(&curr_pos, positions_to_plot, 2, curr_heading);
 }
 
@@ -321,25 +321,3 @@ void screen_main_task(void *arg)
     Free screen_task_params that were passed to us. */
     free(arg);
 }
-
-/* Feel free to modify this to create a totally separate screen rendering function. */
-// void screen_campanile_task(void *arg)
-// {
-//     screen_task_params_t* args = (screen_task_params_t*)arg;
-//     nmea_parser_handle_t nmea_hndl = args->nmea_hndl;
-//     imu_data_t* global_imu = args->global_imu;
-//     start_screen();
-//     ESP_LOGI(SCREEN_TAG, "Starting Campanile task");
-//     uint32_t time_till_next_ms = 0;
-//     uint32_t time_threshold_ms = 1000 / CONFIG_FREERTOS_HZ;
-//     while (1) {
-//         // Lock the mutex due to the LVGL APIs are not thread-safe
-//         _lock_acquire(&lvgl_api_lock);
-//         update_screen(display, nmea_hndl, global_imu);
-//         time_till_next_ms = lv_timer_handler();
-//         _lock_release(&lvgl_api_lock);
-//         // in case of triggering a task watch dog time out
-//         time_till_next_ms = MAX(time_till_next_ms, time_threshold_ms);
-//         usleep(1000 * time_till_next_ms);
-//     }
-// }

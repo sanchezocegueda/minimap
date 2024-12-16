@@ -35,7 +35,7 @@ void send_lora_gps();
 
 #define I2C_MASTER_NUM I2C_NUM_0 /* I2C port number for master dev */
 
-const bool DEBUG_IMU = false;
+const bool DEBUG_IMU = true;
 
 
 /* Global variable init */
@@ -63,7 +63,7 @@ calibration_t cal_mpu9250_6500 = {
     .accel_scale_hi = {.x = -0.984251, .y = -0.977627, .z = -0.985206}};
 
 /* Global calibration variable */
-calibration_t *cal = &cal_mpu92_65;
+calibration_t *cal = &cal_mpu9250_6500;
 
 
 /* Function to run the imu */
@@ -90,6 +90,7 @@ static void run_imu(void)
     /* Update global_imu data */
     float heading, pitch, roll;
     ahrs_get_euler_in_degrees(&heading, &pitch, &roll);
+    // TODO: Add semaphore
     global_imu.heading = heading;
     global_imu.pitch = pitch;
     global_imu.roll = roll;
@@ -108,7 +109,7 @@ static void run_imu(void)
 static void imu_task(void *arg)
 {
   /* Init IMU and ahrs algorithm */
-  i2c_mpu9250_init(cal);
+  assert(ESP_OK == init_imu(cal));
   ahrs_init(SAMPLE_FREQ_Hz, 0.8);
 
   run_imu(); /* Infinite loop to poll the IMU in a period of CONFIG_SAMPLE_RATE_Hz */
@@ -313,9 +314,6 @@ void app_main()
   nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
   nmea_hndl = nmea_parser_init(&config);
 
-  /* Setup IMU and start the polling task. */
-  xTaskCreate(imu_task, "imu_task", 4096, NULL, 10, NULL);
-
   /* Setup buttons */
   button_handle_t left_btn, right_btn;
   init_buttons(&left_btn, &right_btn);
@@ -336,6 +334,9 @@ void app_main()
   /* Calibrate_task returns and does not infinite loop, so it's ok to use stack memory.
   app_main runs this to completion before executing the next line of code.  */
   calibrate_task(&calibrate_params);
+
+  /* Setup IMU and start the polling task. */
+  xTaskCreate(imu_task, "imu_task", 4096, NULL, 10, NULL);
 
   /* Malloc screen parameters for GPS data, counter data, imu data, and pass to lora task and screen task.
   Currently, this freed when screen_main_task cleans itself up (after the infinite loop) */

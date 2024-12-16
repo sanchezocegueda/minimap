@@ -64,7 +64,6 @@ void lvgl_timer_task(void* pvParam) {
     uint32_t time_threshold_ms = 1000 / CONFIG_FREERTOS_HZ;
     while (1) {
         _lock_acquire(&lvgl_api_lock);
-
         time_till_next_ms = lv_timer_handler();
         _lock_release(&lvgl_api_lock);
         // in case of triggering a task watch dog time out

@@ -89,6 +89,16 @@ esp_err_t i2c_mpu9250_init(calibration_t *c)
   return ESP_OK;
 }
 
+esp_err_t init_imu(calibration_t* cal)
+{
+  static bool init_imu_done = false;
+  if (init_imu_done)
+    return ESP_OK;
+  esp_err_t success = i2c_mpu9250_init(cal);
+  init_imu_done = (success == ESP_OK) ? true : false;
+  return success;
+}
+
 esp_err_t set_clock_source(uint8_t adrs)
 {
   return i2c_write_bits(I2C_MASTER_NUM, MPU9250_I2C_ADDR, MPU9250_RA_PWR_MGMT_1, MPU9250_PWR1_CLKSEL_BIT, MPU9250_PWR1_CLKSEL_LENGTH, adrs);

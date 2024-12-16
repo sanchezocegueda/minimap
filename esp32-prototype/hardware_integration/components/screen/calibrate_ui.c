@@ -367,7 +367,7 @@ void calibrate_task(void *pvParam){
   /* Block until a button press. */
   minimap_button_event_t press;
   ESP_LOGI("[CALIBRATION]", "Waiting for user to press a button to calibrate");
-  if (xQueueReceive(button_event_queue, &press, portMAX_DELAY) && press == LEFT_PRESS) {
+  if (xQueueReceive(button_event_queue, &press, portMAX_DELAY) == pdPASS && press == LEFT_PRESS) {
     /* On left button press, we don't calibrate */
       return;
   }
@@ -377,7 +377,7 @@ void calibrate_task(void *pvParam){
   xTaskCreate(lvgl_timer_task, "lvgl timer task", 4096, NULL, 8, &timer_handle);
 
   /* Init IMU */
-  i2c_mpu9250_init(&cal);
+  init_imu(&cal);
 
   /* Perform screen calibration */
   calibrate_gyro_with_output(imu_cal);
