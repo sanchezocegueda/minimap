@@ -69,7 +69,7 @@ calibration_t *cal = &cal_mpu92_65;
 /* Function to run the imu */
 static void run_imu(void)
 {
-  uint32_t i;
+  uint32_t i = 0;
   while (true)
   {
     vector_t va, vg, vm;
@@ -184,6 +184,9 @@ void task_both(nmea_parser_handle_t nmea_hndl)
   // };
 
   uint8_t buf[sizeof(uint32_t)];
+
+   /* Set the size of packets to match GPS data. (By default it is configured to uint32_t in lora_config()) */
+   lora_implicit_header_mode(sizeof(coordinates_t));
 
   for (;;)
   {

@@ -426,7 +426,9 @@ void lora_config(void)
 
    lora_set_spreading_factor(12);
 
-   /* Set the size of packets. Could be changed on the fly */
+   /* Set the size of packets. Could be changed on the fly.
+   Can also force hardware to ignore payloads of different length
+      - (TODO: verify this is actually alowed in implicit header mode) */
    lora_implicit_header_mode(sizeof(uint32_t));
 }
 
@@ -548,7 +550,8 @@ lora_receive_packet_blocking(uint8_t *buf, int size)
 {
    lora_write_reg(REG_DIO_MAPPING_1, DIO0_RX_DONE); /* Config DIO0 to interrupt when RxDone */
    __DIO0_RX = true;
-   /* Continuous mode, interrupt should happen on RxTimeout as well, we can config in registers TODO, see datasheet */
+   /* Single operation mode, interrupt should happen on RxTimeout as well,
+   we can config the RxTimeout duration in hardware registers TODO, see datasheet */
    lora_receive(true);
    int event;
    ESP_LOGI("[DEBUG LORA BLOCKING]", "About to block");
