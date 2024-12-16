@@ -1,3 +1,5 @@
+#include "esp_log.h"
+#include "nmea_parser.h"
 #include "ui_utils.h"
 /* NOTE: y values are flipped on the screen. */
 
@@ -185,36 +187,45 @@ void display_screen(coordinates_t *curr_pos, coordinates_t *other_pos,
 }
 
 /* Update information for the screen and display it. Gets called every 2ms. */
-void update_screen(lv_display_t *disp, nmea_parser_handle_t nmea_hndl,
+void update_screen(lv_display_t *disp,
                    imu_data_t *global_imu) {
 
-  coordinates_t curr_pos = read_gps(nmea_hndl);
+  coordinates_t curr_pos;
+  coordinates_t other_pos;
+  lora_gps_packet_t receivedValue;
 
-  // TODO: unjank
-  // if (curr_pos.lat == 0.0 || curr_pos.lon == 0.0) {
-  //     return;
-  // }
+  if (xQueueReceive(screen_lora_event_queue, &receivedValue, portMAX_DELAY) == pdPASS) {
+      if (receivedValue.tx_rx == 0) {
+        // transmitter
+        // ESP_LOGI("QUEUE READ TX", "Value from queue %ld", receivedValue.counter_val);
+        // sprintf(send_label, "sent: %f, %f", receivedValue.curr_gps_pos.lat, receivedValue.curr_gps_pos.lon);
+        curr_pos = receivedValue.curr_gps_pos;
+      } else {
+        // receiver
+        // ESP_LOGI("QUEUE READ RX", "Value from queue %ld", receivedValue.counter_val);
+        other_pos = receivedValue.curr_gps_pos;
+      }
+    }
+    coordinates_t cory_hall = {
+        CORY_DOORS_LATITUDE,
+        CORY_DOORS_LONGITUDE,
+    };
 
-  coordinates_t cory_hall = {
-      CORY_DOORS_LATITUDE,
-      CORY_DOORS_LONGITUDE,
-  };
+    float curr_heading = global_imu->heading;
 
-  float curr_heading = global_imu->heading;
+    coordinates_t campanile_pos = {CAMPANILE_LATITUDE, CAMPANILE_LONGITUDE};
 
-  coordinates_t campanile_pos = {CAMPANILE_LATITUDE, CAMPANILE_LONGITUDE};
-
-  coordinates_t positions_to_plot[2] = {
-      cory_hall,
-      other,
-  };
-
-  display_screen(&curr_pos, positions_to_plot, 2, curr_heading);
+    coordinates_t positions_to_plot[2] = {
+        cory_hall,
+        other_pos,
+    };
+    ESP_LOGI("HEADING", "THeading: %f", curr_heading);
+    display_screen(&curr_pos, positions_to_plot, 2, curr_heading);
 }
 
 void render_counter() {
 
-  lora_packet_t receivedValue;
+  lora_gps_packet_t receivedValue;
   if (xQueueReceive(screen_lora_event_queue, &receivedValue, portMAX_DELAY) == pdPASS) {
     pos_t send_location = {50, 0};
     pos_t recieved_location = {-50, 0};
@@ -222,12 +233,13 @@ void render_counter() {
     static char recieved_label[32];
     if (receivedValue.tx_rx == 0) {
       // transmitter
-      ESP_LOGI("QUEUE READ TX", "Value from queue %ld", receivedValue.counter_val);
-      sprintf(send_label, "Sending: %ld", receivedValue.counter_val);
+      // ESP_LOGI("QUEUE READ TX", "Value from queue %ld", receivedValue.counter_val);
+      sprintf(send_label, "sent: %f, %f", receivedValue.curr_gps_pos.lat, receivedValue.curr_gps_pos.lon);
     } else {
       // receiver
-      ESP_LOGI("QUEUE READ RX", "Value from queue %ld", receivedValue.counter_val);
-      sprintf(recieved_label, "Receiving: %ld", receivedValue.counter_val);
+      // ESP_LOGI("QUEUE READ RX", "Value from queue %ld", receivedValue.counter_val);
+      sprintf(recieved_label, "rec: %f, %f", receivedValue.curr_gps_pos.lat, receivedValue.curr_gps_pos.lon);
+
     }
     draw_bubble(&send_location, send_label);
     draw_bubble(&recieved_location, recieved_label);
@@ -296,8 +308,8 @@ void screen_main_task(void *arg)
         /* Draw the background. */
         clear_screen();
         /* Call some UI function or react on some logic ... */
-        // update_screen(display, nmea_hndl, global_imu);
-        render_counter();
+        update_screen(display, global_imu);
+        // render_counter(nmea_hndl);
         // varun_ui(display);
         // in case of triggering a task watch dog time out
 
@@ -314,23 +326,23 @@ void screen_main_task(void *arg)
 }
 
 /* Feel free to modify this to create a totally separate screen rendering function. */
-void screen_campanile_task(void *arg)
-{
-    screen_task_params_t* args = (screen_task_params_t*)arg;
-    nmea_parser_handle_t nmea_hndl = args->nmea_hndl;
-    imu_data_t* global_imu = args->global_imu;
-    start_screen();
-    ESP_LOGI(SCREEN_TAG, "Starting Campanile task");
-    uint32_t time_till_next_ms = 0;
-    uint32_t time_threshold_ms = 1000 / CONFIG_FREERTOS_HZ;
-    while (1) {
-        // Lock the mutex due to the LVGL APIs are not thread-safe
-        _lock_acquire(&lvgl_api_lock);
-        update_screen(display, nmea_hndl, global_imu);
-        time_till_next_ms = lv_timer_handler();
-        _lock_release(&lvgl_api_lock);
-        // in case of triggering a task watch dog time out
-        time_till_next_ms = MAX(time_till_next_ms, time_threshold_ms);
-        usleep(1000 * time_till_next_ms);
-    }
-}
+// void screen_campanile_task(void *arg)
+// {
+//     screen_task_params_t* args = (screen_task_params_t*)arg;
+//     nmea_parser_handle_t nmea_hndl = args->nmea_hndl;
+//     imu_data_t* global_imu = args->global_imu;
+//     start_screen();
+//     ESP_LOGI(SCREEN_TAG, "Starting Campanile task");
+//     uint32_t time_till_next_ms = 0;
+//     uint32_t time_threshold_ms = 1000 / CONFIG_FREERTOS_HZ;
+//     while (1) {
+//         // Lock the mutex due to the LVGL APIs are not thread-safe
+//         _lock_acquire(&lvgl_api_lock);
+//         update_screen(display, nmea_hndl, global_imu);
+//         time_till_next_ms = lv_timer_handler();
+//         _lock_release(&lvgl_api_lock);
+//         // in case of triggering a task watch dog time out
+//         time_till_next_ms = MAX(time_till_next_ms, time_threshold_ms);
+//         usleep(1000 * time_till_next_ms);
+//     }
+// }

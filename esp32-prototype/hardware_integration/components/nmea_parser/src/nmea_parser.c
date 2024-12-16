@@ -793,3 +793,13 @@ coordinates_t read_gps(nmea_parser_handle_t nmea_hndl) {
     xSemaphoreGive(gps->lock);
     return cord;
 }
+
+gps_time_t read_gps_time(nmea_parser_handle_t nmea_hndl) {
+    gps_t* gps = &((esp_gps_t*)nmea_hndl)->parent;
+    gps_time_t time;
+    xSemaphoreTake(gps->lock, portMAX_DELAY);
+    time = gps->tim;
+    xSemaphoreGive(gps->lock);
+
+    return time;
+}

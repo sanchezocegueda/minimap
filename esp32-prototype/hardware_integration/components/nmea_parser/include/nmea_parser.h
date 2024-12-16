@@ -195,6 +195,8 @@ typedef struct coordinates {
  */
 coordinates_t read_gps(nmea_parser_handle_t nmea_hndl);
 
+gps_time_t read_gps_time(nmea_parser_handle_t nmea_hndl);
+
 #ifdef __cplusplus
 }
 #endif

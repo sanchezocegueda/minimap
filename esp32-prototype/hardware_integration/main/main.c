@@ -62,7 +62,9 @@ calibration_t cal_mpu9250_6500 = {
 /* Global calibration variable */
 calibration_t *cal = &cal_mpu92_65;
 
-
+typedef struct lora_task_params {
+    nmea_parser_handle_t nmea_hndl;
+} lora_task_params_t;
 
 void run_imu(void)
 {
@@ -174,52 +176,47 @@ void task_rx(void *p)
 }
 
 /* Task to send a counter and listen for a counter periodically*/
-void task_both(void *p)
+void task_both(nmea_parser_handle_t nmea_hndl)
 {
-  ESP_LOGI("[task_both]", "started");
+  // ESP_LOGI("[task_both]", "started");
+  // lora_packet_t packet_tx = {
+  //   .counter_val = 0,
+  //   .tx_rx = 0,
+  // };
 
-  lora_packet_t packet_tx = {
-    .counter_val = 0,
-    .tx_rx = 0,
-  };
-
-  lora_packet_t packet_rx = {
-    .counter_val = 0,
-    .tx_rx = 1,
-  };
+  // lora_packet_t packet_rx = {
+  //   .counter_val = 0,
+  //   .tx_rx = 1,
+  // };
 
   uint8_t buf[sizeof(uint32_t)];
 
   for (;;)
   {
-    ESP_LOGI("[TX]", "counter: %ld", packet_tx.counter_val);
-    lora_send_packet((uint8_t *)&packet_tx.counter_val, sizeof(uint32_t));
-    xQueueSendToFront(screen_lora_event_queue, &packet_tx, portMAX_DELAY);
 
-    /* 3 second interval to send and listen for one message. */
-    uint32_t start_ticks =  xTaskGetTickCount();
-    uint32_t end_ticks = start_ticks + pdMS_TO_TICKS(2500);
-
-    ESP_LOGW("[ASSERTING]", "coordinates_t: %u; uint32_t: %u", sizeof(coordinates_t), sizeof(uint32_t));
-
-    lora_receive(false);
-    bool received;
-    while (!(received = lora_received()) && xTaskGetTickCount() < end_ticks) { vTaskDelay(1); }
-
-    if (received) {
-      int bytes_read = lora_receive_packet((uint8_t *)&buf, sizeof(uint32_t));
-      if (bytes_read > 0) {
-        ESP_LOGI("[RX]", "%d bytes, counter: %ld", bytes_read, ((uint32_t*)buf)[0]);
-        packet_rx.counter_val = ((uint32_t*)buf)[0];
-        xQueueSendToFront(screen_lora_event_queue, &packet_rx, portMAX_DELAY);
-      }
-    }
-
-    packet_tx.counter_val++;
+    gps_time_t time = read_gps_time(nmea_hndl);
     
-    uint32_t cur = xTaskGetTickCount();
-    uint32_t delay_ticks = (cur < end_ticks) ? end_ticks - cur : 1;
-    vTaskDelay(delay_ticks);
+    if (time.second % 10 > 5) { // TODO: CHANGE THIS TO > 5 for other device (need to find cleaner way so we don't have to change)
+      coordinates_t gps_coord = read_gps(nmea_hndl); 
+      lora_gps_packet_t packet_tx = {
+        .tx_rx=0,
+        .curr_gps_pos = gps_coord
+      };
+      lora_send_packet((uint8_t *)&packet_tx.curr_gps_pos, sizeof(coordinates_t));
+      xQueueSendToFront(screen_lora_event_queue, &packet_tx, portMAX_DELAY);
+    } else {
+
+      lora_receive(false);
+      lora_gps_packet_t packet_rx;
+      while (lora_received()) {
+        int bytes_read = lora_receive_packet((uint8_t *)&buf, sizeof(coordinates_t));
+        if (bytes_read > 0) {
+          packet_rx.curr_gps_pos = ((coordinates_t*)buf)[0];
+          packet_rx.tx_rx = 1;
+          xQueueSendToFront(screen_lora_event_queue, &packet_rx, portMAX_DELAY);
+        }
+      }
+    }  
   }
 }
 
@@ -295,24 +292,24 @@ void lora_task(void *pvParam)
 {
   /* Setup Lora Radio */
   assert(1 == lora_init());
-
+  lora_task_params_t * params = (lora_task_params_t *) pvParam;
   lora_config();
   /* Start an actual task for the radio... */
   // task_rx(NULL);
   // task_tx(NULL);
   // task_both_gps(NULL);
-  task_both(NULL);
+  task_both(params->nmea_hndl);
   // task_lora_rx(NULL);
 }
 
 void app_main()
 {
   /* Setup GPS */
-  // nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
-  // nmea_hndl = nmea_parser_init(&config);
+  nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
+  nmea_hndl = nmea_parser_init(&config);
 
   /* Setup IMU and start the polling task. */
-  // xTaskCreate(imu_task, "imu_task", 4096, NULL, 10, NULL);
+  xTaskCreate(imu_task, "imu_task", 4096, NULL, 10, NULL);
 
   /* Setup buttons */
   button_handle_t left_btn, right_btn;
@@ -335,21 +332,22 @@ void app_main()
   app_main runs this to completion before executing the next line of code.  */
   // xTaskCreate(calibrate_task, "calibration", 4096, &calibrate_params, 5, NULL);
 
-  calibrate_task(&calibrate_params);
+  // calibrate_task(&calibrate_params);
 
 
   /* Malloc screen parameters for GPS data, counter data, imu data, and pass to lora task and screen task.
   Currently, this freed when screen_main_task cleans itself up (after the infinite loop) */
   /* tbh idk if storing all this on the heap is really cleaner than just using static memory...  but, I feel like it's not that bad */
-
+  lora_task_params_t * lora_task_params = malloc(sizeof(lora_task_params_t));
   screen_task_params_t *screen_params = malloc(sizeof(screen_task_params_t));
   // screen_params->screen_lora_event_queue = xQueueCreate(10, sizeof(struct lora_packet));
   /* TODO: Cleanup global_imu... Make a thread_safe ds similar to gps_t in nmea_parser.c */
   screen_params->global_imu = &global_imu;
   screen_params->nmea_hndl = nmea_hndl;
+  lora_task_params->nmea_hndl = nmea_hndl;
 
   screen_lora_event_queue = xQueueCreate(20, sizeof(struct lora_packet));
 
-  xTaskCreate(&lora_task, "lora_task", 4096, NULL, 5, NULL);
+  xTaskCreate(&lora_task, "lora_task", 4096, lora_task_params, 5, NULL);
   xTaskCreate(screen_main_task, "Minimap", LVGL_TASK_STACK_SIZE, screen_params, LVGL_TASK_PRIORITY, NULL);
 }

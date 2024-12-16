@@ -1,6 +1,7 @@
 #ifndef __UI_UTILS_H__
 #define __UI_UTILS_H__
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -43,8 +44,13 @@ typedef struct imu_data {
 
 typedef struct lora_packet {
   bool tx_rx;      // 0 for tx, 1 for rx
-  uint32_t counter_val; // self-explanatory
+  uint32_t counter_val; // gps position
 } lora_packet_t;
+
+typedef struct lora_gps_packet {
+  bool tx_rx;      // 0 for tx, 1 for rx
+  coordinates_t curr_gps_pos; // gps position
+} lora_gps_packet_t;
 
 /* pvParameter for app_main to pass to xCreateTask for the screen */
 typedef struct screen_task_params {
