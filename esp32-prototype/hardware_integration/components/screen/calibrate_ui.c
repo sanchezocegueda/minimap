@@ -369,12 +369,12 @@ void calibrate_task(void *pvParam){
   /* Block until a button press. */
   minimap_button_event_t press;
   ESP_LOGI("[CALIBRATION]", "Waiting for user to press a button to calibrate");
-  if (xQueueReceive(button_event_queue, &press, portMAX_DELAY) == pdPASS && press == LEFT_PRESS) {
+  if (xQueueReceive(button_event_queue, &press, portMAX_DELAY) == pdPASS && press == RIGHT_PRESS) {
     /* On left button press, we don't calibrate */
-    vTaskDelete(timer_handle);
+      vTaskDelete(timer_handle);
       return;
   }
-  
+
   /* Right button press (we do want to calibrate) */
 
   *imu_cal = cal;
