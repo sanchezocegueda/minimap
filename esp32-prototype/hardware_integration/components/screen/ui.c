@@ -112,7 +112,7 @@ void draw_bubble(pos_t *position, char *label) {
   /* Create bubble object */
   lv_obj_t *bubble_obj =
       lv_obj_create(lv_scr_act());                // Add to the active screen
-  lv_obj_set_size(bubble_obj, 10, 10);            // Set size of the bubble
+  lv_obj_set_size(bubble_obj, 20, 20);            // Set size of the bubble
   lv_obj_add_style(bubble_obj, &style_bubble, 0); // Add the style to the bubble
   lv_obj_align(bubble_obj, LV_ALIGN_CENTER, position->x, position->y); // Align the bubble
 
@@ -133,14 +133,14 @@ void draw_north(pos_t *position, char *label) {
   _lock_acquire(&lvgl_api_lock);
   static lv_style_t style_north;
   lv_style_init(&style_north);
-  lv_style_set_radius(&style_north, 20); // Set the radius for rounded corners
+  lv_style_set_radius(&style_north, 10); // Set the radius for rounded corners
   lv_style_set_bg_opa(&style_north, LV_OPA_COVER);
   lv_style_set_bg_color(&style_north, lv_color_hex(0xB90E0A));
 
   /* Create bubble object */
   lv_obj_t *bubble_obj =
       lv_obj_create(lv_scr_act());                // Add to the active screen
-  lv_obj_set_size(bubble_obj, 20, 20);            // Set size of the bubble
+  lv_obj_set_size(bubble_obj, 10, 10);            // Set size of the bubble
   lv_obj_add_style(bubble_obj, &style_north, 0); // Add the style to the bubble
   lv_obj_align(bubble_obj, LV_ALIGN_CENTER, position->x, position->y); // Align the bubble
 
@@ -159,7 +159,7 @@ void draw_north(pos_t *position, char *label) {
  */
 void draw_north_indicator(float heading_angle) {
 
-  float angle = deg_to_rad(90 - heading_angle);
+  float angle = deg_to_rad(-90 - heading_angle);
   float x = cosf(angle) * MAX_DISPLAY_RADIUS;
   float y = sinf(angle) * MAX_DISPLAY_RADIUS;
 

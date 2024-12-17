@@ -65,7 +65,7 @@ calibration_t cal_mpu9250_6500 = {
     .accel_scale_hi = {.x = -0.984251, .y = -0.977627, .z = -0.985206}};
 
 /* Global calibration variable */
-calibration_t *cal = &cal_mpu9250_6500;
+calibration_t *cal = &cal_mpu92_65;
 
 
 /* Function to run the imu */
