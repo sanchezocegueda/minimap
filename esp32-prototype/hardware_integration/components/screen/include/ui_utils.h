@@ -22,7 +22,7 @@
 #include "mpu9250.h"
 
 /* Defines */
-#define MAX_DISPLAY_RADIUS 100
+#define MAX_DISPLAY_RADIUS 95
 #define MIN_DISPLAY_RADIUS 20
 #define SCREEN_SCALE 2
 

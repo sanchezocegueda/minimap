@@ -186,6 +186,9 @@ void task_both(nmea_parser_handle_t nmea_hndl)
 
     gps_time_t time = read_gps_time(nmea_hndl);
     
+
+    // > 5 is for 9250-6500
+    // < 5 is 92-65
     if (time.second % 10 < 5) { // TODO: CHANGE THIS TO > 5 for other device (need to find cleaner way so we don't have to change)
       gps_output_t gps_out = read_gps(nmea_hndl);
 
@@ -359,5 +362,5 @@ void app_main()
 
   xTaskCreate(&lora_task, "lora_task", 4096, lora_task_params, 5, NULL);
   
-  xTaskCreate(screen_main_task, "Minimap", LVGL_TASK_STACK_SIZE, screen_params, LVGL_TASK_PRIORITY, NULL);
+  xTaskCreate(screen_main_task, "Minimap", 8192, screen_params, LVGL_TASK_PRIORITY, NULL);
 }

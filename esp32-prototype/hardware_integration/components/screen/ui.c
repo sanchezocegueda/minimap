@@ -30,6 +30,12 @@ float deg_to_rad(float deg) { return deg * (M_PI / 180.0f); }
 gps_output_t curr_out;
 gps_output_t other_outc;
 
+/* Global variables for bubbles */
+static lv_style_t style_bubble;
+static lv_style_t style_other;
+static lv_style_t style_north;
+
+
 /**
  * @brief Gets the euclidean distance between two GPS coordinate pairs
  * @param coords1 GPS coordinates
@@ -97,17 +103,31 @@ void transform_to_screen(pos_t *pos, float heading_angle) {
   pos->y = -1 * pos->y;
 }
 
+void initialize_styles() {
+  _lock_acquire(&lvgl_api_lock);
+  lv_style_init(&style_other);
+  lv_style_set_radius(&style_other, 20); // Set the radius for rounded corners
+  lv_style_set_bg_opa(&style_other, LV_OPA_COVER);
+  lv_style_set_bg_color(&style_other, lv_color_hex(0x03AC13));
+
+  lv_style_init(&style_bubble);
+  lv_style_set_radius(&style_bubble, 20); // Set the radius for rounded corners
+  lv_style_set_bg_opa(&style_bubble, LV_OPA_COVER);
+  lv_style_set_bg_color(&style_bubble, lv_color_hex(0x2832C2));
+  
+  lv_style_init(&style_north);
+  lv_style_set_radius(&style_north, 20); // Set the radius for rounded corners
+  lv_style_set_bg_opa(&style_north, LV_OPA_COVER);
+  lv_style_set_bg_color(&style_north, lv_color_hex(0xB90E0A));
+  _lock_release(&lvgl_api_lock);
+}
+
 /**
  * @brief draw a labeled bubble on screen.
  */
 void draw_bubble(pos_t *position, char *label) {
   /* Initialize style for the bubble */
   _lock_acquire(&lvgl_api_lock);
-  static lv_style_t style_bubble;
-  lv_style_init(&style_bubble);
-  lv_style_set_radius(&style_bubble, 20); // Set the radius for rounded corners
-  lv_style_set_bg_opa(&style_bubble, LV_OPA_COVER);
-  lv_style_set_bg_color(&style_bubble, lv_color_hex(0x23CEF1));
 
   /* Create bubble object */
   lv_obj_t *bubble_obj =
@@ -125,17 +145,13 @@ void draw_bubble(pos_t *position, char *label) {
   _lock_release(&lvgl_api_lock);
 }
 
+
 /**
  * @brief draw a labeled bubble on screen.
  */
 void draw_other(pos_t *position, char *label) {
   /* Initialize style for the bubble */
   _lock_acquire(&lvgl_api_lock);
-  static lv_style_t style_other;
-  lv_style_init(&style_other);
-  lv_style_set_radius(&style_other, 20); // Set the radius for rounded corners
-  lv_style_set_bg_opa(&style_other, LV_OPA_COVER);
-  lv_style_set_bg_color(&style_other, lv_color_hex(0x03AC13));
 
   /* Create bubble object */
   lv_obj_t *bubble_obj =
@@ -159,11 +175,6 @@ void draw_other(pos_t *position, char *label) {
 void draw_north(pos_t *position, char *label) {
   /* Initialize style for the bubble */
   _lock_acquire(&lvgl_api_lock);
-  static lv_style_t style_north;
-  lv_style_init(&style_north);
-  lv_style_set_radius(&style_north, 10); // Set the radius for rounded corners
-  lv_style_set_bg_opa(&style_north, LV_OPA_COVER);
-  lv_style_set_bg_color(&style_north, lv_color_hex(0xB90E0A));
 
   /* Create bubble object */
   lv_obj_t *bubble_obj =
@@ -259,24 +270,25 @@ void update_screen(lv_display_t *disp, nmea_parser_handle_t nmea_hndl, imu_data_
     
     float curr_heading = global_imu->heading;
     coordinates_t campanile_pos = {CAMPANILE_LATITUDE, CAMPANILE_LONGITUDE};
-    coordinates_t positions_to_plot[2] = {
-        cory_hall,
+    coordinates_t positions_to_plot[1] = {
+        // cory_hall,
         other_pos,
     };
 
-    // Whether device is sufficiently level
-    bool is_level = fmax(fabs(global_imu->pitch), fabs(global_imu->roll)) < SCREEN_SLEEP_ORIENTATION_THRESH;
 
-    if (!is_level) {
-      gpio_set_level(2, LCD_BK_LIGHT_OFF_LEVEL);
-      usleep(500 * 1000);
-      return;
-    } else {
-      gpio_set_level(2, LCD_BK_LIGHT_ON_LEVEL);
-    }
+    // Whether device is sufficiently level
+    // bool is_level = fmax(fabs(global_imu->pitch), fabs(global_imu->roll)) < SCREEN_SLEEP_ORIENTATION_THRESH;
+
+    // if (!is_level) {
+    //   gpio_set_level(2, LCD_BK_LIGHT_OFF_LEVEL);
+    //   usleep(500 * 1000);
+    //   return;
+    // } else {
+    //   gpio_set_level(2, LCD_BK_LIGHT_ON_LEVEL);
+    // }
     
     ESP_LOGI("[SCREEN]", "Heading: %f", curr_heading);
-    display_screen(&curr_pos, positions_to_plot, 2, curr_heading);
+    display_screen(&curr_pos, positions_to_plot, 1, curr_heading);
 }
 
 void render_counter() {
@@ -360,6 +372,7 @@ void screen_main_task(void *arg)
     ESP_LOGI(SCREEN_TAG, "Starting screen_main_task");
     uint32_t time_till_next_ms = 0;
     uint32_t time_threshold_ms = 1000 / CONFIG_FREERTOS_HZ;
+    initialize_styles();
     while (1) {
         /* Draw the background. */
         clear_screen();
