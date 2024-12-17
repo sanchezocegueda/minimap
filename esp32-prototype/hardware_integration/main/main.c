@@ -57,8 +57,8 @@ calibration_t cal_mpu92_65 = {
     .accel_scale_hi = {.x = -1.001975, .y = -0.988439, .z = -0.996091}};
 
 calibration_t cal_mpu9250_6500 = {
-    .mag_offset = {.x = 9.082031, .y = 21.937500, .z = -2.929688},
-    .mag_scale = {.x = 0.992484, .y = 1.201046, .z = 0.862203},
+    .mag_offset = {.x = 27.246094, .y = 28.031250, .z = 19.335938},
+    .mag_scale = {.x = 0.971636, .y = 0.923795, .z = 1.125724},
     .gyro_bias_offset = {.x = -0.612455, .y = -0.792115, .z = -1.854843},
     .accel_offset = {.x = 0.028677, .y = 0.059277, .z = 0.060068},
     .accel_scale_lo = {.x = 1.016573, .y = 1.025387, .z = 1.041263},
@@ -98,8 +98,9 @@ static void run_imu(void)
     global_imu.roll = roll;
 
     /* Debug every CONFIG_SAMPLE_RATE_Hz / 10 */
-    if (DEBUG_IMU && i++ % 10 == 0)
+    if (DEBUG_IMU && i++ % 100 == 0) {
       ESP_LOGI("[IMU]", "heading: %2.3f°, pitch: %2.3f°, roll: %2.3f°", heading, pitch, roll);
+    }
       // TODO: Shouldn't need this below
       // vTaskDelay(1); /* Make the WDT happy */
 
