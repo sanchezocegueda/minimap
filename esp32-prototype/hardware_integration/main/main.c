@@ -186,7 +186,7 @@ void task_both(nmea_parser_handle_t nmea_hndl)
 
     gps_time_t time = read_gps_time(nmea_hndl);
     
-    if (time.second % 10 > 5) { // TODO: CHANGE THIS TO > 5 for other device (need to find cleaner way so we don't have to change)
+    if (time.second % 10 < 5) { // TODO: CHANGE THIS TO > 5 for other device (need to find cleaner way so we don't have to change)
       gps_output_t gps_out = read_gps(nmea_hndl);
 
       // Make sure we have a valid GPS reading
@@ -198,20 +198,21 @@ void task_both(nmea_parser_handle_t nmea_hndl)
       curr_pos.lat = gps_out.lat;
       curr_pos.lon = gps_out.lon;
       
-      lora_send_packet((uint8_t *) &curr_pos, sizeof(coordinates_t));
+      lora_send_packet_blocking((uint8_t *) &curr_pos, sizeof(coordinates_t));
       ESP_LOGI("SENT LAT LON", "LAT: %f, LON: %f", curr_pos.lat, curr_pos.lon);
     } else {
-      lora_receive(false);
+      // lora_receive(false);
       gps_output_t gps_rx;
-      while (lora_received()) {
-        int bytes_read = lora_receive_packet((uint8_t *)&buf, sizeof(coordinates_t));
+      /* Make this some small interval */
+      // while (lora_received()) {
+        int bytes_read = lora_receive_packet_blocking((uint8_t *)&buf, sizeof(coordinates_t));
         if (bytes_read > 0) {
           other_pos = ((coordinates_t*)buf)[0];
           gps_rx.lat = other_pos.lat;
           gps_rx.lon = other_pos.lon;
           xQueueSendToFront(screen_lora_event_queue, &other_pos, portMAX_DELAY);
         }
-      }
+      // }
     }  
   }
 }

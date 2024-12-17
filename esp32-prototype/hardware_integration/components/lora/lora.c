@@ -446,7 +446,7 @@ void lora_config(void)
    lora_implicit_header_mode(sizeof(uint32_t));
 
 
-   int timeout = 5;
+   int timeout = 24;
    int msb = (timeout >> 8) & 0x03; // Only bits 9-8 are valid
    int lsb = timeout & 0xFF;        // Lower 8 bits
 
