@@ -126,36 +126,22 @@ void draw_bubble(pos_t *position, char *label) {
 
 /**
  * @brief Draw indicator pointing toward north
+ * @param heading_angle expects the heading in degrees
  */
 void draw_north_indicator(float heading_angle) {
 
-  float angle = deg_to_rad(-heading_angle);
+  float angle = deg_to_rad(-heading_angle + 90);
   float x = cosf(angle) * MAX_DISPLAY_RADIUS;
   float y = sinf(angle) * MAX_DISPLAY_RADIUS;
 
-  /* Initialize style for the bubble */
-  static lv_style_t style_bubble;
-  lv_style_init(&style_bubble);
-  lv_style_set_radius(&style_bubble, 10); // Set the radius for rounded corners
-  lv_style_set_bg_opa(&style_bubble, LV_OPA_COVER);
-  lv_style_set_bg_color(&style_bubble, lv_color_hex(0xFF8888));
+  pos_t north_pos;
+  north_pos.x = x;
+  north_pos.y = y;
 
-  /* Create bubble object */
-  lv_obj_t *bubble_obj =
-      lv_obj_create(lv_scr_act());                // Add to the active screen
-  lv_obj_set_size(bubble_obj, 10, 10);            // Set size of the bubble
-  lv_obj_add_style(bubble_obj, &style_bubble, 0); // Add the style to the bubble
-  lv_obj_align(bubble_obj, LV_ALIGN_CENTER, x, y); // Align the bubble
+  char buf[16];
+  sprintf(buf, "%d°", (int) heading_angle);
 
-  /* Create label object */
-  lv_obj_t *label_obj =
-      lv_label_create(lv_scr_act()); // Add label to the active screen
-  lv_label_set_text_fmt(label_obj, "%.0f °",
-                        heading_angle); // Set the label text
-  lv_obj_set_style_text_color(label_obj, lv_color_hex(0xFFFFFF),
-                              LV_PART_MAIN); // Set text color
-  lv_obj_align_to(label_obj, bubble_obj, LV_ALIGN_OUT_BOTTOM_MID, 0,
-                  10); // Align the label to bubble
+  draw_bubble(&north_pos, buf);
 }
 
 /**
@@ -174,7 +160,7 @@ void display_screen(coordinates_t *curr_pos, coordinates_t *other_pos,
 
   // TODO: Appears to be 90 degrees off for some reason? Needs debugging
   // TODO: Make this thread-safe, no lvgl function can be called without a lock
-  // draw_north_indicator(offset_angle);
+  draw_north_indicator(offset_angle);
   // ESP_LOGI()
   for (int i = 0; i < num_other; i++) {
     pos_t relative_pos = get_relative_pos(curr_pos, &other_pos[i]);
