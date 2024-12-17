@@ -128,6 +128,34 @@ void draw_bubble(pos_t *position, char *label) {
 /**
  * @brief draw a labeled bubble on screen.
  */
+void draw_bubble(pos_t *position, char *label) {
+  /* Initialize style for the bubble */
+  _lock_acquire(&lvgl_api_lock);
+  static lv_style_t style_other;
+  lv_style_init(&style_other);
+  lv_style_set_radius(&style_other, 20); // Set the radius for rounded corners
+  lv_style_set_bg_opa(&style_other, LV_OPA_COVER);
+  lv_style_set_bg_color(&style_other, lv_color_hex(0x03AC13));
+
+  /* Create bubble object */
+  lv_obj_t *bubble_obj =
+      lv_obj_create(lv_scr_act());                // Add to the active screen
+  lv_obj_set_size(bubble_obj, 20, 20);            // Set size of the bubble
+  lv_obj_add_style(bubble_obj, &style_other, 0); // Add the style to the bubble
+  lv_obj_align(bubble_obj, LV_ALIGN_CENTER, position->x, position->y); // Align the bubble
+
+  /* Create label object */
+  lv_obj_t *label_obj =
+      lv_label_create(lv_scr_act());   // Add label to the active screen
+  lv_label_set_text(label_obj, label); // Set the label text
+  lv_obj_set_style_text_color(label_obj, lv_color_hex(0xFFFFFF), LV_PART_MAIN); // Set text color
+  lv_obj_align_to(label_obj, bubble_obj, LV_ALIGN_OUT_BOTTOM_MID, 0, 10); // Align the label to bubble
+  _lock_release(&lvgl_api_lock);
+}
+
+/**
+ * @brief draw a labeled bubble on screen.
+ */
 void draw_north(pos_t *position, char *label) {
   /* Initialize style for the bubble */
   _lock_acquire(&lvgl_api_lock);
@@ -198,7 +226,7 @@ void display_screen(coordinates_t *curr_pos, coordinates_t *other_pos,
 
     char label[16];
     sprintf(label, "%.1f m", dist);
-    draw_bubble(&relative_pos, label);
+    draw_other(&relative_pos, label);
   }
 }
 
