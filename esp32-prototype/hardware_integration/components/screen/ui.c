@@ -128,7 +128,7 @@ void draw_bubble(pos_t *position, char *label) {
 /**
  * @brief draw a labeled bubble on screen.
  */
-void draw_bubble(pos_t *position, char *label) {
+void draw_other(pos_t *position, char *label) {
   /* Initialize style for the bubble */
   _lock_acquire(&lvgl_api_lock);
   static lv_style_t style_other;
