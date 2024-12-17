@@ -65,7 +65,7 @@ calibration_t cal_mpu9250_6500 = {
     .accel_scale_hi = {.x = -0.984251, .y = -0.977627, .z = -0.985206}};
 
 /* Global calibration variable */
-calibration_t *cal = &cal_mpu92_65;
+calibration_t *cal = &cal_mpu9250_6500;
 
 
 /* Function to run the imu */
@@ -189,7 +189,7 @@ void task_both(nmea_parser_handle_t nmea_hndl)
 
     // > 5 is for 9250-6500
     // < 5 is 92-65
-    if (time.second % 10 < 5) { // TODO: CHANGE THIS TO > 5 for other device (need to find cleaner way so we don't have to change)
+    if (time.second % 10 > 5) { // TODO: CHANGE THIS TO > 5 for other device (need to find cleaner way so we don't have to change)
       gps_output_t gps_out = read_gps(nmea_hndl);
 
       // Make sure we have a valid GPS reading

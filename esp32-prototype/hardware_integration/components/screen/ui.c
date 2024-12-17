@@ -219,7 +219,7 @@ void draw_north_indicator(float heading_angle) {
  * @param num_other Length of other_pos array
  * @param offset_angle Current heading relative to north
  */
-void display_screen(coordinates_t *curr_pos, coordinates_t *other_pos,
+void display_screen(coordinates_t *curr_pos, coordinates_t *other_coordinate,
                     int num_other, float offset_angle) {
   pos_t origin = {0, 0};
   char our_label[32];
@@ -231,7 +231,7 @@ void display_screen(coordinates_t *curr_pos, coordinates_t *other_pos,
   draw_north_indicator(offset_angle);
   // ESP_LOGI()
   for (int i = 0; i < num_other; i++) {
-    pos_t relative_pos = get_relative_pos(curr_pos, &other_pos[i]);
+    pos_t relative_pos = get_relative_pos(curr_pos, &other_coordinate[i]);
     float dist = l2_dist(&relative_pos);
     transform_to_screen(&relative_pos, offset_angle); // updates in place
 
@@ -270,8 +270,8 @@ void update_screen(lv_display_t *disp, nmea_parser_handle_t nmea_hndl, imu_data_
     
     float curr_heading = global_imu->heading;
     coordinates_t campanile_pos = {CAMPANILE_LATITUDE, CAMPANILE_LONGITUDE};
-    coordinates_t positions_to_plot[1] = {
-        // cory_hall,
+    coordinates_t positions_to_plot[2] = {
+        cory_hall,
         other_pos,
     };
 
@@ -288,7 +288,7 @@ void update_screen(lv_display_t *disp, nmea_parser_handle_t nmea_hndl, imu_data_
     // }
     
     ESP_LOGI("[SCREEN]", "Heading: %f", curr_heading);
-    display_screen(&curr_pos, positions_to_plot, 1, curr_heading);
+    display_screen(&curr_pos, positions_to_plot, 2, curr_heading);
 }
 
 void render_counter() {
