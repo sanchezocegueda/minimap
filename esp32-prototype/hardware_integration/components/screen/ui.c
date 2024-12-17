@@ -34,6 +34,7 @@ gps_output_t other_outc;
 static lv_style_t style_bubble;
 static lv_style_t style_other;
 static lv_style_t style_north;
+static lv_style_t style_landmark;
 
 
 /**
@@ -119,6 +120,13 @@ void initialize_styles() {
   lv_style_set_radius(&style_north, 20); // Set the radius for rounded corners
   lv_style_set_bg_opa(&style_north, LV_OPA_COVER);
   lv_style_set_bg_color(&style_north, lv_color_hex(0xB90E0A));
+
+  lv_style_init(&style_landmark);
+  lv_style_set_radius(&style_landmark, 20); // Set the radius for rounded corners
+  lv_style_set_bg_opa(&style_landmark, LV_OPA_COVER);
+  lv_style_set_bg_color(&style_landmark, lv_color_hex(0xBDA55D));
+
+
   _lock_release(&lvgl_api_lock);
 }
 
@@ -168,6 +176,30 @@ void draw_other(pos_t *position, char *label) {
   lv_obj_align_to(label_obj, bubble_obj, LV_ALIGN_OUT_BOTTOM_MID, 0, 10); // Align the label to bubble
   _lock_release(&lvgl_api_lock);
 }
+
+/**
+ * @brief draw a labeled bubble on screen.
+ */
+void draw_landmark(pos_t *position, char *label) {
+  /* Initialize style for the bubble */
+  _lock_acquire(&lvgl_api_lock);
+
+  /* Create bubble object */
+  lv_obj_t *bubble_obj =
+      lv_obj_create(lv_scr_act());                // Add to the active screen
+  lv_obj_set_size(bubble_obj, 20, 20);            // Set size of the bubble
+  lv_obj_add_style(bubble_obj, &style_landmark, 0); // Add the style to the bubble
+  lv_obj_align(bubble_obj, LV_ALIGN_CENTER, position->x, position->y); // Align the bubble
+
+  /* Create label object */
+  lv_obj_t *label_obj =
+      lv_label_create(lv_scr_act());   // Add label to the active screen
+  lv_label_set_text(label_obj, label); // Set the label text
+  lv_obj_set_style_text_color(label_obj, lv_color_hex(0xFFFFFF), LV_PART_MAIN); // Set text color
+  lv_obj_align_to(label_obj, bubble_obj, LV_ALIGN_OUT_BOTTOM_MID, 0, 10); // Align the label to bubble
+  _lock_release(&lvgl_api_lock);
+}
+
 
 /**
  * @brief draw a labeled bubble on screen.
@@ -230,6 +262,9 @@ void display_screen(coordinates_t *curr_pos, coordinates_t *other_coordinate,
   // TODO: Make this thread-safe, no lvgl function can be called without a lock
   draw_north_indicator(offset_angle);
   // ESP_LOGI()
+
+  
+
   for (int i = 0; i < num_other; i++) {
     pos_t relative_pos = get_relative_pos(curr_pos, &other_coordinate[i]);
     float dist = l2_dist(&relative_pos);
@@ -237,7 +272,11 @@ void display_screen(coordinates_t *curr_pos, coordinates_t *other_coordinate,
 
     char label[16];
     sprintf(label, "%.1f m", dist);
-    draw_other(&relative_pos, label);
+    if (i == 0) {
+      draw_other(&relative_pos, label);
+    } else {
+      draw_landmark(&relative_pos, label);
+    }
   }
 }
 
