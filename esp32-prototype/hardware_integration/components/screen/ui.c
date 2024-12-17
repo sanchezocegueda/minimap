@@ -7,6 +7,7 @@
 #define SATHERGATE_LONGITUDE -122.25947 // sather gate longitude (in degrees)
 #define SATHERGATE_LATITUDE 37.8702180  // sather gate latitude (in degrees)
 #define EARTH_RADIUS_M 6371000.0        // earth's radius in meters
+#define SCREEN_SLEEP_ORIENTATION_THRESH 20 // absolute difference in degrees from level plane that triggers screen off
 
 
 /* GPS Data from right outside cory doors. */
@@ -206,6 +207,17 @@ void update_screen(lv_display_t *disp, nmea_parser_handle_t nmea_hndl, imu_data_
         cory_hall,
         other_pos,
     };
+
+    // Whether device is sufficiently level
+    bool is_level = fmax(fabs(global_imu->pitch), fabs(global_imu->roll)) < SCREEN_SLEEP_ORIENTATION_THRESH;
+
+    if (!is_level) {
+      gpio_set_level(2, LCD_BK_LIGHT_OFF_LEVEL);
+      usleep(500 * 1000);
+      return;
+    } else {
+      gpio_set_level(2, LCD_BK_LIGHT_ON_LEVEL);
+    }
     
     ESP_LOGI("[SCREEN]", "Heading: %f", curr_heading);
     display_screen(&curr_pos, positions_to_plot, 2, curr_heading);
