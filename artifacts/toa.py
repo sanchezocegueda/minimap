@@ -33,4 +33,4 @@ for SF in range(6, 13):  # SF is an integer in [6, 12]
             T_payload = n_payload * T_s
             
             # Print results for the current combination
-            print(f"SF: {SF}, BW: {BW} Hz, CR: 4/{4 + CR}, T_payload: {T_payload * 100.0:.6f} ms")
+            print(f"Lora Symbol period: {T_s * 5}, SF: {SF}, BW: {BW} Hz, CR: 4/{4 + CR}, T_payload: {T_payload * 100.0:.6f} ms")

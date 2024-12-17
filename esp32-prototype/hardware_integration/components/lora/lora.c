@@ -30,6 +30,11 @@
 #define REG_PKT_RSSI_VALUE             0x1a
 #define REG_MODEM_CONFIG_1             0x1d
 #define REG_MODEM_CONFIG_2             0x1e
+
+/* Support for RxTimeout interrupt */
+#define REG_SYMB_TIMEOUT_MSB           0x1e
+#define REG_SYMB_TIMEOUT_LSB           0x1f
+
 #define REG_PREAMBLE_MSB               0x20
 #define REG_PREAMBLE_LSB               0x21
 #define REG_PAYLOAD_LENGTH             0x22
@@ -81,6 +86,14 @@ static long __frequency;
 #define IRQ_FLAGS_RX_DONE           (1ULL << 6)
 #define IRQ_FLAGS_PAYLOAD_CRC_ERROR (1ULL << 5)
 #define IRQ_FLAGS_TX_DONE           (1ULL << 3)
+
+/* Support for RxTimeout on DIO1 */
+
+typedef enum {
+   RX_DONE,
+   RX_TIMEOUT,
+   TX_DONE,
+} lora_event_t;
 
 /*
  * Before transmitting, we config DIO0 to interrupt TX_DONE, and config to RX_DONE before receiving.
@@ -413,6 +426,7 @@ void lora_config(void)
    /* 915MHz */
    lora_set_frequency(915E6);
 
+   /* Include 2 byte checksum for each packet, verified by lora hardware. */
    lora_enable_crc();
 
    /* Set preamble length to 12 symbols (default) */
@@ -430,6 +444,20 @@ void lora_config(void)
    Can also force hardware to ignore payloads of different length
       - (TODO: verify this is actually alowed in implicit header mode) */
    lora_implicit_header_mode(sizeof(uint32_t));
+
+
+   int timeout = 5;
+   int msb = (timeout >> 8) & 0x03; // Only bits 9-8 are valid
+   int lsb = timeout & 0xFF;        // Lower 8 bits
+
+   // Write MSB to RegSymbTimeout MSB (bits 1-0)
+   int current_msb = lora_read_reg(REG_SYMB_TIMEOUT_MSB);
+   current_msb = (current_msb & 0xFC) | msb; // Preserve other bits
+   lora_write_reg(REG_SYMB_TIMEOUT_MSB, current_msb);
+
+   // Write LSB to RegSymbTimeout LSB
+   lora_write_reg(REG_SYMB_TIMEOUT_LSB, lsb);
+
 }
 
 
@@ -470,7 +498,7 @@ lora_send_packet_blocking(uint8_t *buf, int size)
    lora_write_reg(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_TX);
    int event;
    // TODO: Make 5000 a customizable delay
-   if (xQueueReceive(lora_irq_queue, &event, 5000) && event == IRQ_FLAGS_TX_DONE)
+   if (xQueueReceive(lora_irq_queue, &event, 5000) && event == TX_DONE)
          lora_write_reg(REG_IRQ_FLAGS, IRQ_FLAGS_TX_DONE); // clear bit in IRQ Status register
 }
 
@@ -553,12 +581,14 @@ lora_receive_packet_blocking(uint8_t *buf, int size)
    /* Single operation mode, interrupt should happen on RxTimeout as well,
    we can config the RxTimeout duration in hardware registers TODO, see datasheet */
    lora_receive(true);
-   int event;
+   lora_event_t event;
    ESP_LOGI("[DEBUG LORA BLOCKING]", "About to block");
-   if (xQueueReceive(lora_irq_queue, &event, portMAX_DELAY) && event == IRQ_FLAGS_RX_DONE)
+   // TODO: Make 5000 around the same time as TOA.
+   if (xQueueReceive(lora_irq_queue, &event, 5000) && (event == RX_DONE || event == RX_TIMEOUT))
    {
       /* Clear interrupts */
       int irq = lora_read_reg(REG_IRQ_FLAGS);
+      ESP_LOGI("[DEBUG LORA BLOCKING]", "%X", irq);
       lora_write_reg(REG_IRQ_FLAGS, irq);
 
       /* Check errors */
@@ -577,6 +607,7 @@ lora_receive_packet_blocking(uint8_t *buf, int size)
       /* Read fifo data */
       return lora_read_fifo(buf, size);
    }
+   ESP_LOGI("[DEBUG LORA BLOCKING]", "Did not enter if statement");
    return 0;
 }
 
@@ -631,7 +662,15 @@ lora_dump_registers(void)
 static void IRAM_ATTR
 lora_isr_handler(void* arg)
 {
-   int event = __DIO0_RX ? IRQ_FLAGS_RX_DONE : IRQ_FLAGS_TX_DONE;
+   lora_event_t event = __DIO0_RX ? RX_DONE : TX_DONE;
+   xQueueSendFromISR(lora_irq_queue, &event, NULL);
+}
+
+/* Timeout on DIO1 */
+static void IRAM_ATTR
+lora_rx_timeout_handler(void* arg)
+{
+   lora_event_t event = RX_TIMEOUT;
    xQueueSendFromISR(lora_irq_queue, &event, NULL);
 }
 
@@ -642,15 +681,26 @@ lora_isr_handler(void* arg)
 static void
 lora_init_irq(gpio_num_t irq_pin)
 {
-   gpio_config_t io_conf = {
+   /* Setup pins MCU pins for DIO0 and DIO1 interrupts */
+   gpio_config_t dio_0 = {
       .pin_bit_mask = 1ULL << irq_pin,
       .mode = GPIO_MODE_INPUT,
       .pull_up_en = GPIO_PULLDOWN_ENABLE,
       .intr_type = GPIO_INTR_POSEDGE
    };
-   gpio_config(&io_conf);
+   gpio_config(&dio_0);
 
-   lora_irq_queue = xQueueCreate(10, sizeof(int));
+   gpio_config_t dio_1 = {
+      .pin_bit_mask = 1ULL << 18,
+      .mode = GPIO_MODE_INPUT,
+      .pull_up_en = GPIO_PULLDOWN_ENABLE,
+      .intr_type = GPIO_INTR_POSEDGE
+   };
+   gpio_config(&dio_1);
+
+   lora_irq_queue = xQueueCreate(10, sizeof(lora_event_t));
    gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
    gpio_isr_handler_add(irq_pin, lora_isr_handler, NULL);
+
+   gpio_isr_handler_add(18, lora_rx_timeout_handler, NULL);
 }

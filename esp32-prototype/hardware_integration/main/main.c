@@ -230,17 +230,17 @@ void task_both_gps(void *p)
   {
     send_lora_gps(nmea_hndl);
 
-    lora_receive(false);
-    bool received;
-    while (!(received = lora_received())) { vTaskDelay(pdMS_TO_TICKS(25)); }
+    // lora_receive(false);
+    // bool received;
+    // while (!(received = lora_received())) { vTaskDelay(pdMS_TO_TICKS(25)); }
 
-    if (received) {
-      int bytes_read = lora_receive_packet((uint8_t *)&buf, sizeof(coordinates_t));
+    // if (received) {
+      int bytes_read = lora_receive_packet_blocking((uint8_t *)&buf, sizeof(coordinates_t));
       if (bytes_read > 0) {
         ESP_LOGI("[LORA_RX_GPS]", "Bytes read: %d, Lat: %0.5f, Long: %0.5f", bytes_read, buf.lat, buf.lon);
         other_pos = buf;
       }
-    }
+    // }
     vTaskDelay(1);
   }
 }
@@ -265,6 +265,7 @@ void send_lora_gps(nmea_parser_handle_t nmea_hndl)
   lora_send_packet_blocking((uint8_t *)&curr_pos, sizeof(coordinates_t));
   ESP_LOGI("[LORA_TX_GPS]", "Lat: %0.5f, Long: %0.5f", curr_pos.lat, curr_pos.lon);
 }
+
 /* Task for receiving GPS over lora */
 void receive_lora_gps(void *)
 {
@@ -276,16 +277,15 @@ void receive_lora_gps(void *)
   coordinates_t buf;
   for (;;)
   {
-    lora_receive(false);
-    bool received;
-    while (!(received = lora_received())) { vTaskDelay(pdMS_TO_TICKS(25)); }
+    // bool received;
+    // while (!(received = lora_received())) { vTaskDelay(pdMS_TO_TICKS(25)); }
 
-    if (received) {
-      int bytes_read = lora_receive_packet((uint8_t *)&buf, sizeof(coordinates_t));
+    // if (received) {
+      int bytes_read = lora_receive_packet_blocking((uint8_t *)&buf, sizeof(coordinates_t));
       if (bytes_read > 0) {
         ESP_LOGI("[LORA_RX_GPS]", "Bytes read: %d, Lat: %0.5f, Long: %0.5f", bytes_read, buf.lat, buf.lon);
       }
-    }
+    // }
     vTaskDelay(1);
   }
 }
