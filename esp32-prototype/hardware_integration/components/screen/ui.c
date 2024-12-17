@@ -112,8 +112,36 @@ void draw_bubble(pos_t *position, char *label) {
   /* Create bubble object */
   lv_obj_t *bubble_obj =
       lv_obj_create(lv_scr_act());                // Add to the active screen
-  lv_obj_set_size(bubble_obj, 20, 20);            // Set size of the bubble
+  lv_obj_set_size(bubble_obj, 10, 10);            // Set size of the bubble
   lv_obj_add_style(bubble_obj, &style_bubble, 0); // Add the style to the bubble
+  lv_obj_align(bubble_obj, LV_ALIGN_CENTER, position->x, position->y); // Align the bubble
+
+  /* Create label object */
+  lv_obj_t *label_obj =
+      lv_label_create(lv_scr_act());   // Add label to the active screen
+  lv_label_set_text(label_obj, label); // Set the label text
+  lv_obj_set_style_text_color(label_obj, lv_color_hex(0xFFFFFF), LV_PART_MAIN); // Set text color
+  lv_obj_align_to(label_obj, bubble_obj, LV_ALIGN_OUT_BOTTOM_MID, 0, 10); // Align the label to bubble
+  _lock_release(&lvgl_api_lock);
+}
+
+/**
+ * @brief draw a labeled bubble on screen.
+ */
+void draw_north(pos_t *position, char *label) {
+  /* Initialize style for the bubble */
+  _lock_acquire(&lvgl_api_lock);
+  static lv_style_t style_north;
+  lv_style_init(&style_north);
+  lv_style_set_radius(&style_north, 20); // Set the radius for rounded corners
+  lv_style_set_bg_opa(&style_north, LV_OPA_COVER);
+  lv_style_set_bg_color(&style_north, lv_color_hex(0xB90E0A));
+
+  /* Create bubble object */
+  lv_obj_t *bubble_obj =
+      lv_obj_create(lv_scr_act());                // Add to the active screen
+  lv_obj_set_size(bubble_obj, 20, 20);            // Set size of the bubble
+  lv_obj_add_style(bubble_obj, &style_north, 0); // Add the style to the bubble
   lv_obj_align(bubble_obj, LV_ALIGN_CENTER, position->x, position->y); // Align the bubble
 
   /* Create label object */
@@ -137,12 +165,12 @@ void draw_north_indicator(float heading_angle) {
 
   pos_t north_pos;
   north_pos.x = x;
-  north_pos.y = -y; // negate because LVGL
+  north_pos.y = y;
 
   char buf[16];
   sprintf(buf, "%d°", (int) heading_angle);
 
-  draw_bubble(&north_pos, buf);
+  draw_north(&north_pos, buf);
 }
 
 /**
