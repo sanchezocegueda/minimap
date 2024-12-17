@@ -297,14 +297,10 @@ void calibrate_mag_with_output(calibration_t* cal_mpu_x)
   clear_screen();
 
   char buf0[96];
-  sprintf(buf0, "Rotate the magnometer around all 3 axes, until the min and max values don't change anymore.");
-  char buf1[96];
-  sprintf(buf1, "  x        y        z      min x     min y     min z     max x     max y     max z");
-  display_line_0(buf0);
-  display_line_1(buf1);
-  wait(1);
 
-  char buf2[96];
+  sprintf(buf0, "Rotate the magnometer around all 3 axes,\n until the min and max values don't change anymore.");
+  display_line_2(buf0);
+  wait(1);
 
   for (int i = 0; i < NUM_MAG_READS; i += 1)
   {
@@ -317,14 +313,14 @@ void calibrate_mag_with_output(calibration_t* cal_mpu_x)
     v_max.y = MAX(v_max.y, vm.y);
     v_max.z = MAX(v_max.z, vm.z);
 
-
-    sprintf(buf2, " %0.3f    %0.3f    %0.3f    %0.3f   %0.3f   %0.3f   %0.3f   %0.3f   %0.3f", vm.x, vm.y, vm.z, v_min.x, v_min.y, v_min.z, v_max.x, v_max.y, v_max.z);
-    // clear_screen();
-    // display_line_0(buf0);
-    // display_line_1(buf1);
-    // display_line_2(buf2);
-    // wait(1);
-
+    /* Display debug info */
+    if (i % 100 == 0) {
+      clear_screen();
+      sprintf(buf0, "%0.3f    %0.3f    %0.3f\n%0.3f   %0.3f   %0.3f\n%0.3f   %0.3f   %0.3f",
+        vm.x, vm.y, vm.z, v_min.x, v_min.y, v_min.z, v_max.x, v_max.y, v_max.z);
+      display_line_2(buf0);
+    }
+    
     vTaskDelay(10 / portTICK_PERIOD_MS);
   }
 
@@ -364,7 +360,6 @@ write the values into the provided cal pointer in pvParam. NOTE: Not actually a 
 void calibrate_task(void *pvParam){
   calibrate_screen_params_t* args = (calibrate_screen_params_t*) pvParam;
   calibration_t* imu_cal = args->cal_x;
-  *imu_cal = cal;
 
   /* Block until a button press. */
   minimap_button_event_t press;
@@ -373,6 +368,9 @@ void calibrate_task(void *pvParam){
     /* On left button press, we don't calibrate */
       return;
   }
+
+  *imu_cal = cal;
+
   /* Right button press (we do want to calibrate) */
   /* lvgl_timer_task is to count lvgl ticks while the calibration task runs */
   TaskHandle_t timer_handle;
