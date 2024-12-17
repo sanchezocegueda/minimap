@@ -363,19 +363,22 @@ write the values into the provided cal pointer in pvParam. NOTE: Not actually a 
 void calibrate_task(void *pvParam){
   calibrate_screen_params_t* args = (calibrate_screen_params_t*) pvParam;
   calibration_t* imu_cal = args->cal_x;
+  /* lvgl_timer_task is to count lvgl ticks while the calibration task runs */
+  TaskHandle_t timer_handle;
+  xTaskCreate(lvgl_timer_task, "lvgl timer task", 4096, NULL, 8, &timer_handle);
+
+  display_text("Calibrate?\nA: YES        B: NO");
 
   /* Block until a button press. */
   minimap_button_event_t press;
   ESP_LOGI("[CALIBRATION]", "Waiting for user to press a button to calibrate");
   if (xQueueReceive(button_event_queue, &press, portMAX_DELAY) == pdPASS && press == LEFT_PRESS) {
     /* On left button press, we don't calibrate */
+    vTaskDelete(timer_handle);
       return;
   }
-  /* Right button press (we do want to calibrate) */
-  /* lvgl_timer_task is to count lvgl ticks while the calibration task runs */
-  TaskHandle_t timer_handle;
-  xTaskCreate(lvgl_timer_task, "lvgl timer task", 4096, NULL, 8, &timer_handle);
 
+  /* Right button press (we do want to calibrate) */
   /* Init IMU */
   init_imu(&cal);
 

@@ -130,13 +130,13 @@ void draw_bubble(pos_t *position, char *label) {
  */
 void draw_north_indicator(float heading_angle) {
 
-  float angle = deg_to_rad(-heading_angle + 90);
+  float angle = deg_to_rad(90 - heading_angle);
   float x = cosf(angle) * MAX_DISPLAY_RADIUS;
   float y = sinf(angle) * MAX_DISPLAY_RADIUS;
 
   pos_t north_pos;
   north_pos.x = x;
-  north_pos.y = y;
+  north_pos.y = -y; // negate because LVGL
 
   char buf[16];
   sprintf(buf, "%d°", (int) heading_angle);
